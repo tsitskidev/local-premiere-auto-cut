@@ -14,13 +14,13 @@ WINFLAG: --windowed
 CUTTER_ABS: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\cut_silence_to_fcpxml.py
 Running PyInstaller...
 C:\Users\tomas\AppData\Roaming\Python\Python313\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed --hidden-import=vlc --name SilenceCut --add-data C:\Users\tomas\Desktop\local-premiere-auto-cut\project\cut_silence_to_fcpxml.py;. silencecut_gui.py
-223 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
-223 INFO: Python: 3.13.3
-248 INFO: Platform: Windows-11-10.0.26100-SP0
-249 INFO: Python environment: C:\Python313
-250 INFO: wrote C:\Users\tomas\Desktop\local-premiere-auto-cut\project\SilenceCut.spec
-260 INFO: Removing temporary files and cleaning cache in C:\Users\tomas\AppData\Local\pyinstaller
-263 INFO: Module search paths (PYTHONPATH):
+241 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
+242 INFO: Python: 3.13.3
+269 INFO: Platform: Windows-11-10.0.26100-SP0
+269 INFO: Python environment: C:\Python313
+270 INFO: wrote C:\Users\tomas\Desktop\local-premiere-auto-cut\project\SilenceCut.spec
+280 INFO: Removing temporary files and cleaning cache in C:\Users\tomas\AppData\Local\pyinstaller
+283 INFO: Module search paths (PYTHONPATH):
 ['C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\Scripts\\pyinstaller.exe',
  'C:\\Python313\\python313.zip',
  'C:\\Python313\\DLLs',
@@ -29,57 +29,57 @@ C:\Users\tomas\AppData\Roaming\Python\Python313\Scripts\pyinstaller.exe --noconf
  'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages',
  'C:\\Python313\\Lib\\site-packages',
  'C:\\Users\\tomas\\Desktop\\local-premiere-auto-cut\\project']
-633 INFO: Appending 'datas' from .spec
-633 INFO: checking Analysis
-634 INFO: Building Analysis because Analysis-00.toc is non existent
-634 INFO: Looking for Python shared library...
-634 INFO: Using Python shared library: C:\Python313\python313.dll
-634 INFO: Running Analysis Analysis-00.toc
-634 INFO: Target bytecode optimization level: 0
-634 INFO: Initializing module dependency graph...
-636 INFO: Initializing module graph hook caches...
-653 INFO: Analyzing modules for base_library.zip ...
-2183 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-2296 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-4271 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-5752 INFO: Caching module dependency graph...
-5787 INFO: Analyzing C:\Users\tomas\Desktop\local-premiere-auto-cut\project\silencecut_gui.py
-5835 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
-5836 INFO: TclTkInfo: initializing cached Tcl/Tk info...
-6261 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-6376 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-6399 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-6642 INFO: Processing module hooks (post-graph stage)...
-6645 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-6654 INFO: Performing binary vs. data reclassification (928 entries)
-6856 INFO: Looking for ctypes DLLs
-6965 INFO: Analyzing run-time hooks ...
-6965 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
-6968 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
-6991 INFO: Creating base_library.zip...
-7013 INFO: Looking for dynamic libraries
-7215 INFO: Extra DLL search directories (AddDllDirectory): []
-7215 INFO: Extra DLL search directories (PATH): []
-7775 INFO: Warnings written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\warn-SilenceCut.txt
-7790 INFO: Graph cross-reference written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\xref-SilenceCut.html
-7818 INFO: checking PYZ
-7818 INFO: Building PYZ because PYZ-00.toc is non existent
-7818 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz
-8004 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz completed successfully.
-8031 INFO: checking PKG
-8032 INFO: Building PKG because PKG-00.toc is non existent
-8032 INFO: Building PKG (CArchive) SilenceCut.pkg
-11147 INFO: Building PKG (CArchive) SilenceCut.pkg completed successfully.
-11160 INFO: Bootloader C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
-11160 INFO: checking EXE
-11161 INFO: Building EXE because EXE-00.toc is non existent
-11161 INFO: Building EXE from EXE-00.toc
-11161 INFO: Copying bootloader EXE to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist\SilenceCut.exe
-11211 INFO: Copying icon to EXE
-11255 INFO: Copying 0 resources to EXE
-11255 INFO: Embedding manifest in EXE
-11301 INFO: Appending PKG archive to EXE
-11455 INFO: Fixing EXE headers
-12600 INFO: Building EXE from EXE-00.toc completed successfully.
-12613 INFO: Build complete! The results are available in: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist
+656 INFO: Appending 'datas' from .spec
+657 INFO: checking Analysis
+657 INFO: Building Analysis because Analysis-00.toc is non existent
+657 INFO: Looking for Python shared library...
+657 INFO: Using Python shared library: C:\Python313\python313.dll
+657 INFO: Running Analysis Analysis-00.toc
+657 INFO: Target bytecode optimization level: 0
+657 INFO: Initializing module dependency graph...
+659 INFO: Initializing module graph hook caches...
+678 INFO: Analyzing modules for base_library.zip ...
+2290 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+4251 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+5197 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+5725 INFO: Caching module dependency graph...
+5759 INFO: Analyzing C:\Users\tomas\Desktop\local-premiere-auto-cut\project\silencecut_gui.py
+5829 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+5852 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+5870 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+5872 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+6309 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+6626 INFO: Processing module hooks (post-graph stage)...
+6629 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+6638 INFO: Performing binary vs. data reclassification (928 entries)
+6839 INFO: Looking for ctypes DLLs
+6950 INFO: Analyzing run-time hooks ...
+6951 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+6954 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+6977 INFO: Creating base_library.zip...
+6999 INFO: Looking for dynamic libraries
+7200 INFO: Extra DLL search directories (AddDllDirectory): []
+7200 INFO: Extra DLL search directories (PATH): []
+7761 INFO: Warnings written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\warn-SilenceCut.txt
+7775 INFO: Graph cross-reference written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\xref-SilenceCut.html
+7802 INFO: checking PYZ
+7802 INFO: Building PYZ because PYZ-00.toc is non existent
+7802 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz
+7984 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz completed successfully.
+8007 INFO: checking PKG
+8007 INFO: Building PKG because PKG-00.toc is non existent
+8007 INFO: Building PKG (CArchive) SilenceCut.pkg
+11100 INFO: Building PKG (CArchive) SilenceCut.pkg completed successfully.
+11113 INFO: Bootloader C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+11113 INFO: checking EXE
+11113 INFO: Building EXE because EXE-00.toc is non existent
+11113 INFO: Building EXE from EXE-00.toc
+11114 INFO: Copying bootloader EXE to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist\SilenceCut.exe
+11163 INFO: Copying icon to EXE
+11205 INFO: Copying 0 resources to EXE
+11206 INFO: Embedding manifest in EXE
+11248 INFO: Appending PKG archive to EXE
+11397 INFO: Fixing EXE headers
+12529 INFO: Building EXE from EXE-00.toc completed successfully.
+12542 INFO: Build complete! The results are available in: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist
 SUCCESS: dist\SilenceCut.exe

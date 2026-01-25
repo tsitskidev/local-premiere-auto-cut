@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import platform
 import queue
 import sys
 import threading
@@ -40,12 +41,10 @@ def _install_crash_log():
 
 _install_crash_log()
 
-import platform
 
 def _add_vlc_dll_dir():
     paths = []
 
-    # Prefer env override
     vlc_dir_env = os.environ.get("VLC_DIR")
     if vlc_dir_env:
         paths.append(vlc_dir_env)
@@ -53,9 +52,7 @@ def _add_vlc_dll_dir():
     pf = os.environ.get("ProgramFiles", r"C:\Program Files")
     pfx86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
 
-    # Prefer 64-bit VLC when running 64-bit Python/app
     is_64 = platform.architecture()[0] == "64bit"
-
     pf_vlc = os.path.join(pf, "VideoLAN", "VLC")
     pfx86_vlc = os.path.join(pfx86, "VideoLAN", "VLC")
 
@@ -67,25 +64,22 @@ def _add_vlc_dll_dir():
     for p in paths:
         lib = os.path.join(p, "libvlc.dll")
         plugins = os.path.join(p, "plugins")
-
         if not (p and os.path.isdir(p) and os.path.isfile(lib)):
             continue
 
-        # In frozen apps, VLC *must* find plugins.
         if os.path.isdir(plugins):
             os.environ["VLC_PLUGIN_PATH"] = plugins
 
         try:
             if hasattr(os, "add_dll_directory"):
                 os.add_dll_directory(p)
-
-            # Also add to PATH for dependent DLL discovery
             os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
             return p
         except:
             continue
 
     return None
+
 
 def _resource_dir():
     return getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -170,18 +164,22 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("SilenceCut → FCP7 XML")
-        self.geometry("1080x760")
-        self.minsize(940, 660)
+        self.title("SilenceCut")
+        self.geometry("1280x780")
+        self.minsize(1040, 640)
 
         self._log_q = queue.Queue()
         self._running = False
+
         self._plan = None
         self._playhead_sec = 0.0
-        self._timeline_total_w = 3000
+        self._timeline_total_w = 2400
 
         self._settings_dirty = False
         self._settings_save_after_id = None
+
+        self._auto_load_after_id = None
+        self._last_auto_loaded_path = None
 
         self.input_path = tk.StringVar()
         self.threshold = tk.DoubleVar()
@@ -199,16 +197,18 @@ class App(tk.Tk):
         self._vlc_player = None
         self._vlc_media = None
         self._vlc_loaded_path = None
-        self._vlc_is_playing = False
         self._vlc_duration_sec = 0.0
         self._vlc_poll_after_id = None
+
+        self._safe_seek_inflight = False
 
         self._load_settings_into_vars()
         self._build_ui()
         self._install_var_traces()
         self._tick_logs()
 
-        self.after(200, self._init_vlc_if_available)
+        self.after(150, self._init_vlc_if_available)
+        self.after(200, self._schedule_auto_load)
 
     # ------------------------------------------------------------
     # Settings
@@ -248,22 +248,20 @@ class App(tk.Tk):
         self._settings_dirty = True
         if self._settings_save_after_id is not None:
             self.after_cancel(self._settings_save_after_id)
-        self._settings_save_after_id = self.after(350, self._flush_settings_save)
+        self._settings_save_after_id = self.after(300, self._flush_settings_save)
 
     def _flush_settings_save(self):
         self._settings_save_after_id = None
         if not self._settings_dirty:
             return
         self._settings_dirty = False
-        p = _save_settings(self._collect_settings())
-        if p is None:
-            return
+        _save_settings(self._collect_settings())
 
     def reset_defaults(self):
         self._apply_settings(dict(DEFAULTS))
         self._mark_settings_dirty()
-        self.preview_status.set("(Defaults restored)")
         self._append_log("\n[UI] Reset settings to defaults.\n")
+        self._schedule_auto_load()
 
     def _install_var_traces(self):
         vars_to_trace = [
@@ -276,145 +274,130 @@ class App(tk.Tk):
             except:
                 pass
 
+        try:
+            self.input_path.trace_add("write", lambda *_: self._schedule_auto_load())
+        except:
+            pass
+
     # ------------------------------------------------------------
     # UI
     # ------------------------------------------------------------
     def _build_ui(self):
-        root = ttk.Frame(self, padding=14)
+        root = ttk.Frame(self, padding=10)
         root.pack(fill="both", expand=True)
 
-        top = ttk.Frame(root)
-        top.pack(fill="both", expand=True)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
 
-        left = ttk.Frame(top)
-        left.pack(side="left", fill="both", expand=True)
+        layout = ttk.Panedwindow(root, orient="horizontal")
+        layout.pack(fill="both", expand=True)
 
-        right = ttk.Frame(top)
-        right.pack(side="right", fill="y", padx=(12, 0))
+        # LEFT: compact controls
+        left = ttk.Frame(layout, padding=10)
+        layout.add(left, weight=0)
+        left.configure(width=340)
+        left.pack_propagate(False)
 
-        # ---------------- Input + Options ----------------
-        input_box = ttk.LabelFrame(left, text="Input", padding=12)
-        input_box.pack(fill="x")
+        # RIGHT: main video + timeline + log
+        right = ttk.Frame(layout, padding=10)
+        layout.add(right, weight=1)
 
-        row = ttk.Frame(input_box)
-        row.pack(fill="x")
+        # ---------------- Left panel: file + settings + actions ----------------
+        file_box = ttk.LabelFrame(left, text="Media", padding=10)
+        file_box.pack(fill="x")
 
-        ttk.Entry(row, textvariable=self.input_path).pack(side="left", fill="x", expand=True)
-        ttk.Button(row, text="Browse…", command=self.pick_file).pack(side="left", padx=(10, 0))
-        ttk.Button(row, text="Load in Player", command=self.load_in_player).pack(side="left", padx=(10, 0))
+        ttk.Entry(file_box, textvariable=self.input_path).pack(fill="x")
+        btns = ttk.Frame(file_box)
+        btns.pack(fill="x", pady=(8, 0))
+        ttk.Button(btns, text="Browse…", command=self.pick_file).pack(side="left", fill="x", expand=True)
+        ttk.Button(btns, text="Reset", command=self.reset_defaults).pack(side="left", padx=(8, 0), fill="x", expand=True)
 
-        opts = ttk.LabelFrame(left, text="Cut Settings", padding=12)
-        opts.pack(fill="x", pady=(12, 0))
+        settings_box = ttk.LabelFrame(left, text="Cut Settings", padding=10)
+        settings_box.pack(fill="x", pady=(10, 0))
 
-        grid = ttk.Frame(opts)
-        grid.pack(fill="x")
+        def row(label, var, r):
+            rr = ttk.Frame(settings_box)
+            rr.pack(fill="x", pady=4)
+            ttk.Label(rr, text=label).pack(side="left")
+            e = ttk.Entry(rr, textvariable=var, width=10)
+            e.pack(side="right", fill="x", expand=True)
 
-        grid.columnconfigure(1, weight=1)
-        grid.columnconfigure(3, weight=1)
+        row("Threshold (dB)", self.threshold, 0)
+        row("Min silence (s)", self.min_silence, 1)
+        row("Pad (s)", self.pad, 2)
+        row("Min keep (s)", self.min_keep, 3)
 
-        def add_labeled(var, label, r, c):
-            ttk.Label(grid, text=label).grid(row=r, column=c * 2, sticky="w", padx=(0, 10), pady=6)
-            ttk.Entry(grid, textvariable=var).grid(row=r, column=c * 2 + 1, sticky="we", pady=6)
+        rr = ttk.Frame(settings_box)
+        rr.pack(fill="x", pady=4)
+        ttk.Label(rr, text="Audio stream").pack(side="left")
+        ttk.Entry(rr, textvariable=self.audio_stream).pack(side="right", fill="x", expand=True)
 
-        add_labeled(self.threshold, "Threshold (dB):", 0, 0)
-        add_labeled(self.min_silence, "Min silence (sec):", 0, 1)
-        add_labeled(self.pad, "Pad around cuts (sec):", 1, 0)
-        add_labeled(self.min_keep, "Min keep (sec):", 1, 1)
+        ttk.Checkbutton(settings_box, text="Re-create mono proxy", variable=self.regen_mono).pack(anchor="w", pady=(6, 0))
 
-        ttk.Label(grid, text="Audio stream map (optional, e.g. 0:a:0):").grid(row=2, column=0, sticky="w", pady=6)
-        ttk.Entry(grid, textvariable=self.audio_stream).grid(row=2, column=1, columnspan=3, sticky="we", pady=6)
+        actions = ttk.LabelFrame(left, text="Actions", padding=10)
+        actions.pack(fill="x", pady=(10, 0))
 
-        ttk.Checkbutton(grid, text="Re-create mono proxy even if it exists", variable=self.regen_mono).grid(
-            row=3, column=0, columnspan=4, sticky="w", pady=(6, 0)
-        )
-
-        btn_row = ttk.Frame(opts)
-        btn_row.pack(fill="x", pady=(10, 0))
-        ttk.Button(btn_row, text="Reset Defaults", command=self.reset_defaults).pack(side="left")
-
-        # ---------------- Preview (timeline) ----------------
-        preview_box = ttk.LabelFrame(left, text="Timeline Preview", padding=12)
-        preview_box.pack(fill="x", pady=(12, 0))
-
-        pr = ttk.Frame(preview_box)
-        pr.pack(fill="x")
-
-        ttk.Button(pr, text="Analyze + Draw Timeline", command=self.analyze_preview).pack(side="left")
-        ttk.Button(pr, text="Seek Player to Playhead", command=self.seek_player_to_playhead).pack(side="left", padx=(10, 0))
+        act_row = ttk.Frame(actions)
+        act_row.pack(fill="x")
+        ttk.Button(act_row, text="Analyze", command=self.analyze_preview).pack(side="left", fill="x", expand=True)
+        ttk.Button(act_row, text="Generate XML", command=self.run).pack(side="left", padx=(8, 0), fill="x", expand=True)
 
         self.preview_status = tk.StringVar(value="(No analysis yet)")
-        ttk.Label(pr, textvariable=self.preview_status).pack(side="left", padx=(12, 0))
+        ttk.Label(actions, textvariable=self.preview_status, wraplength=300).pack(fill="x", pady=(8, 0))
 
-        self.playhead_label = tk.StringVar(value="Playhead: 0:00.000")
-        ttk.Label(pr, textvariable=self.playhead_label).pack(side="right")
+        self.progress = ttk.Progressbar(left, mode="indeterminate")
+        self.progress.pack(fill="x", pady=(10, 0))
 
-        timeline_frame = ttk.Frame(preview_box)
-        timeline_frame.pack(fill="x", pady=(10, 0))
+        # ---------------- Right panel: video + unified timeline + log ----------------
+        player_box = ttk.LabelFrame(right, text="Preview", padding=10)
+        player_box.pack(fill="both", expand=True)
 
-        self.timeline_canvas = tk.Canvas(timeline_frame, height=64, highlightthickness=1)
+        self.player_surface = tk.Frame(player_box, bg="black", height=420)
+        self.player_surface.pack(fill="x", expand=False)
+        self.player_surface.pack_propagate(False)
+
+        transport = ttk.Frame(player_box)
+        transport.pack(fill="x", pady=(8, 0))
+
+        ttk.Button(transport, text="⏯", width=4, command=self.player_toggle_play).pack(side="left")
+        ttk.Button(transport, text="⏹", width=4, command=self.player_stop).pack(side="left", padx=(6, 0))
+        ttk.Button(transport, text="⏮ 1s", width=6, command=lambda: self.player_nudge(-1.0)).pack(side="left", padx=(10, 0))
+        ttk.Button(transport, text="1s ⏭", width=6, command=lambda: self.player_nudge(1.0)).pack(side="left", padx=(6, 0))
+
+        ttk.Label(transport, text="Vol").pack(side="left", padx=(14, 6))
+        self.vol_slider = ttk.Scale(transport, from_=0, to=100, orient="horizontal", command=self.on_volume_slider)
+        self.vol_slider.pack(side="left", fill="x", expand=True)
+        self.vol_slider.set(float(self.volume.get()))
+
+        self.time_label = tk.StringVar(value="0:00.000 / 0:00.000")
+        ttk.Label(transport, textvariable=self.time_label).pack(side="right")
+
+        timeline_box = ttk.Frame(player_box)
+        timeline_box.pack(fill="x", pady=(10, 0))
+
+        self.timeline_canvas = tk.Canvas(timeline_box, height=66, highlightthickness=1)
         self.timeline_canvas.pack(side="top", fill="x", expand=True)
+        self.timeline_canvas.bind("<Button-1>", self.on_timeline_click)
 
-        self.timeline_scroll = ttk.Scrollbar(timeline_frame, orient="horizontal", command=self.timeline_canvas.xview)
+        self.timeline_scroll = ttk.Scrollbar(timeline_box, orient="horizontal", command=self.timeline_canvas.xview)
         self.timeline_scroll.pack(side="bottom", fill="x")
 
         self.timeline_canvas.configure(xscrollcommand=self.timeline_scroll.set)
-        self.timeline_canvas.bind("<Button-1>", self.on_timeline_click)
 
-        # ---------------- Log + Run ----------------
-        run_row = ttk.Frame(left)
-        run_row.pack(fill="x", pady=(12, 0))
-
-        self.run_btn = ttk.Button(run_row, text="Run (Generate XML)", command=self.run)
-        self.run_btn.pack(side="left")
-
-        self.progress = ttk.Progressbar(run_row, mode="indeterminate")
-        self.progress.pack(side="left", fill="x", expand=True, padx=(14, 0))
-
-        log_box = ttk.LabelFrame(left, text="Log", padding=10)
-        log_box.pack(fill="both", expand=True, pady=(12, 0))
+        log_box = ttk.LabelFrame(right, text="Log", padding=10)
+        log_box.pack(fill="both", expand=False, pady=(10, 0))
 
         self.log = tk.Text(log_box, height=10, wrap="word")
         self.log.pack(fill="both", expand=True)
 
-        # ---------------- Embedded Player (right panel) ----------------
-        player_box = ttk.LabelFrame(right, text="Embedded Player (VLC)", padding=12)
-        player_box.pack(fill="y", expand=True)
-
-        self.player_surface = tk.Frame(player_box, width=360, height=240, bg="black")
-        self.player_surface.pack(fill="both", expand=True)
-        self.player_surface.pack_propagate(False)
-
-        ctrl = ttk.Frame(player_box)
-        ctrl.pack(fill="x", pady=(10, 0))
-
-        ttk.Button(ctrl, text="Play/Pause", command=self.player_toggle_play).pack(side="left")
-        ttk.Button(ctrl, text="Stop", command=self.player_stop).pack(side="left", padx=(8, 0))
-        ttk.Button(ctrl, text="<< 1s", command=lambda: self.player_nudge(-1.0)).pack(side="left", padx=(8, 0))
-        ttk.Button(ctrl, text="1s >>", command=lambda: self.player_nudge(1.0)).pack(side="left", padx=(8, 0))
-
-        vol_row = ttk.Frame(player_box)
-        vol_row.pack(fill="x", pady=(10, 0))
-
-        ttk.Label(vol_row, text="Volume").pack(side="left")
-        self.vol_slider = ttk.Scale(vol_row, from_=0, to=100, orient="horizontal", command=self.on_volume_slider)
-        self.vol_slider.pack(side="left", fill="x", expand=True, padx=(10, 0))
-        self.vol_slider.set(float(self.volume.get()))
-
-        self.player_time_label = tk.StringVar(value="0:00.000 / 0:00.000")
-        ttk.Label(player_box, textvariable=self.player_time_label).pack(fill="x", pady=(8, 0))
-
-        self.seek_slider = ttk.Scale(player_box, from_=0, to=1, orient="horizontal", command=self.on_seek_slider)
-        self.seek_slider.pack(fill="x", pady=(6, 0))
-        self._seek_is_dragging = False
-        self.seek_slider.bind("<ButtonPress-1>", lambda e: self._set_seek_drag(True))
-        self.seek_slider.bind("<ButtonRelease-1>", lambda e: self._set_seek_drag(False))
-
         self._append_log(
-            "Embedded playback uses VLC.\n"
-            "- Install VLC + python-vlc if the player panel stays disabled.\n"
-            "- Load in Player, then Analyze + Draw Timeline.\n"
-            "- Click the timeline to set playhead, then Seek Player to Playhead.\n\n"
+            "Tips:\n"
+            "- Pick a file: it auto-loads into the embedded player.\n"
+            "- Click the timeline to seek the video.\n"
+            "- Hit Analyze to paint KEEP (green) and CUT (red) on the same timeline.\n\n"
         )
+
+        self._draw_timeline_base()
 
     def _append_log(self, s: str):
         self.log.insert("end", s)
@@ -431,14 +414,13 @@ class App(tk.Tk):
 
     def _set_running(self, running: bool):
         self._running = running
-        self.run_btn.config(state=("disabled" if running else "normal"))
         if running:
             self.progress.start(10)
         else:
             self.progress.stop()
 
     # ------------------------------------------------------------
-    # File picker
+    # File picker + auto-load
     # ------------------------------------------------------------
     def pick_file(self):
         path = filedialog.askopenfilename(
@@ -450,6 +432,21 @@ class App(tk.Tk):
         )
         if path:
             self.input_path.set(path)
+
+    def _schedule_auto_load(self):
+        if self._auto_load_after_id is not None:
+            self.after_cancel(self._auto_load_after_id)
+        self._auto_load_after_id = self.after(250, self._auto_load_if_needed)
+
+    def _auto_load_if_needed(self):
+        self._auto_load_after_id = None
+        path = self.input_path.get().strip()
+        if not path or not os.path.isfile(path):
+            return
+        if path == self._last_auto_loaded_path:
+            return
+        self._last_auto_loaded_path = path
+        self._vlc_load_media(path)
 
     # ------------------------------------------------------------
     # Cutter module
@@ -476,7 +473,96 @@ class App(tk.Tk):
         return argv
 
     # ------------------------------------------------------------
-    # Timeline analysis + draw
+    # Timeline drawing (single unified timeline)
+    # ------------------------------------------------------------
+    def _timeline_duration(self) -> float:
+        if self._plan and float(self._plan.get("duration", 0.0)) > 0:
+            return float(self._plan["duration"])
+        if self._vlc_duration_sec > 0:
+            return float(self._vlc_duration_sec)
+        return 0.0
+
+    def _draw_timeline_base(self):
+        self.timeline_canvas.delete("all")
+        h = 66
+        pad_y = 10
+        bar_y0 = pad_y
+        bar_y1 = h - pad_y
+
+        w = self._timeline_total_w
+        self.timeline_canvas.config(scrollregion=(0, 0, w, h))
+        self.timeline_canvas.create_rectangle(0, bar_y0, w, bar_y1, outline="", fill="#222222")
+
+        dur = self._timeline_duration()
+        if dur <= 0:
+            self.timeline_canvas.create_text(12, h // 2, anchor="w", fill="#bbbbbb", text="(load a file to enable timeline)")
+            return
+
+        step = 10 if dur <= 120 else 30 if dur <= 600 else 60
+        t = 0.0
+        while t <= dur:
+            x = (t / dur) * w
+            self.timeline_canvas.create_line(x, bar_y1, x, bar_y1 + 6, fill="#aaaaaa")
+            t += step
+
+        self._draw_playhead()
+
+    def draw_timeline_with_analysis(self):
+        self._draw_timeline_base()
+
+        plan = self._plan
+        if not plan:
+            return
+
+        dur = float(plan["duration"])
+        keeps = plan["keeps"]
+        removes = plan["removes"]
+
+        h = 66
+        pad_y = 10
+        bar_y0 = pad_y
+        bar_y1 = h - pad_y
+        w = self._timeline_total_w
+
+        def x_of(t: float) -> float:
+            return (t / dur) * w if dur > 0 else 0.0
+
+        for a, b in removes:
+            x0, x1 = x_of(a), x_of(b)
+            if x1 > x0:
+                self.timeline_canvas.create_rectangle(x0, bar_y0, x1, bar_y1, outline="", fill="#8a2d2d")
+
+        for a, b in keeps:
+            x0, x1 = x_of(a), x_of(b)
+            if x1 > x0:
+                self.timeline_canvas.create_rectangle(x0, bar_y0, x1, bar_y1, outline="", fill="#2d8a45")
+
+        self._draw_playhead()
+
+    def _draw_playhead(self):
+        dur = self._timeline_duration()
+        if dur <= 0:
+            return
+
+        x = (self._playhead_sec / dur) * self._timeline_total_w
+        self.timeline_canvas.delete("playhead")
+        self.timeline_canvas.create_line(x, 0, x, 66, fill="#ffffff", width=2, tags=("playhead",))
+
+    def on_timeline_click(self, ev):
+        dur = self._timeline_duration()
+        if dur <= 0:
+            return
+
+        x = self.timeline_canvas.canvasx(ev.x)
+        x = max(0.0, min(float(self._timeline_total_w), float(x)))
+        t = (x / float(self._timeline_total_w)) * dur
+
+        self._playhead_sec = float(t)
+        self._draw_playhead()
+        self._safe_seek_player(self._playhead_sec)
+
+    # ------------------------------------------------------------
+    # Analyze
     # ------------------------------------------------------------
     def analyze_preview(self):
         if self._running:
@@ -487,9 +573,9 @@ class App(tk.Tk):
             messagebox.showerror("Missing input", "Please choose a valid media file.")
             return
 
-        self.preview_status.set("Analyzing...")
-        self.timeline_canvas.delete("all")
+        self.preview_status.set("Analyzing…")
         self._plan = None
+        self.draw_timeline_with_analysis()
 
         threshold = float(self.threshold.get())
         min_silence = float(self.min_silence.get())
@@ -502,7 +588,7 @@ class App(tk.Tk):
             try:
                 mod = self._load_cutter()
                 if not hasattr(mod, "compute_plan"):
-                    raise RuntimeError("cut_silence_to_fcpxml.py is missing compute_plan(...). Update the cutter script.")
+                    raise RuntimeError("cut_silence_to_fcpxml.py is missing compute_plan(...).")
 
                 with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
                     plan = mod.compute_plan(inp, threshold, min_silence, pad, min_keep, audio_stream)
@@ -512,8 +598,16 @@ class App(tk.Tk):
                     self._log_q.put(out)
 
                 self._plan = plan
-                self._playhead_sec = 0.0
-                self.after(0, self.draw_timeline)
+                dur = float(plan["duration"])
+                kept_total = float(plan["kept_total"])
+                removed_total = float(plan["removed_total"])
+                segs = plan["keeps_count"]
+
+                self.after(0, lambda: self.preview_status.set(
+                    f"Duration {_sec_to_hhmmss(dur)} · Keep {_sec_to_hhmmss(kept_total)} · Cut {_sec_to_hhmmss(removed_total)} · Segments {segs}"
+                ))
+                self.after(0, self.draw_timeline_with_analysis)
+
             except Exception as e:
                 out = buf.getvalue()
                 if out:
@@ -523,99 +617,8 @@ class App(tk.Tk):
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def draw_timeline(self):
-        plan = self._plan
-        if not plan:
-            return
-
-        duration = float(plan["duration"])
-        keeps = plan["keeps"]
-        removes = plan["removes"]
-        kept_total = float(plan["kept_total"])
-        removed_total = float(plan["removed_total"])
-
-        base_w = 3000
-        scale = max(1.0, duration / 300.0)
-        total_w = int(base_w * scale)
-        self._timeline_total_w = max(1200, total_w)
-
-        h = 64
-        pad_y = 10
-        bar_y0 = pad_y
-        bar_y1 = h - pad_y
-
-        self.timeline_canvas.config(scrollregion=(0, 0, self._timeline_total_w, h))
-        self.timeline_canvas.delete("all")
-
-        self.timeline_canvas.create_rectangle(0, bar_y0, self._timeline_total_w, bar_y1, outline="", fill="#222222")
-
-        def x_of(t: float) -> float:
-            if duration <= 0.0:
-                return 0.0
-            return (t / duration) * self._timeline_total_w
-
-        for a, b in removes:
-            x0 = x_of(a)
-            x1 = x_of(b)
-            if x1 > x0:
-                self.timeline_canvas.create_rectangle(x0, bar_y0, x1, bar_y1, outline="", fill="#8a2d2d")
-
-        for a, b in keeps:
-            x0 = x_of(a)
-            x1 = x_of(b)
-            if x1 > x0:
-                self.timeline_canvas.create_rectangle(x0, bar_y0, x1, bar_y1, outline="", fill="#2d8a45")
-
-        if duration <= 120:
-            step = 10
-        elif duration <= 600:
-            step = 30
-        else:
-            step = 60
-
-        t = 0.0
-        while t <= duration:
-            x = x_of(t)
-            self.timeline_canvas.create_line(x, bar_y1, x, bar_y1 + 6, fill="#aaaaaa")
-            t += step
-
-        self._draw_playhead()
-
-        self.preview_status.set(
-            f"Duration: {_sec_to_hhmmss(duration)} | Keep: {_sec_to_hhmmss(kept_total)} | Cut: {_sec_to_hhmmss(removed_total)} | Segments: {plan['keeps_count']}"
-        )
-        self.playhead_label.set(f"Playhead: {_sec_to_hhmmss(self._playhead_sec)}")
-
-    def _draw_playhead(self):
-        plan = self._plan
-        if not plan:
-            return
-
-        duration = float(plan["duration"])
-        if duration <= 0:
-            return
-
-        x = (self._playhead_sec / duration) * self._timeline_total_w
-        self.timeline_canvas.delete("playhead")
-        self.timeline_canvas.create_line(x, 0, x, 64, fill="#ffffff", width=2, tags=("playhead",))
-
-    def on_timeline_click(self, ev):
-        plan = self._plan
-        if not plan:
-            return
-
-        duration = float(plan["duration"])
-        if duration <= 0:
-            return
-
-        x = self.timeline_canvas.canvasx(ev.x)
-        x = max(0.0, min(float(self._timeline_total_w), float(x)))
-        self._playhead_sec = (x / float(self._timeline_total_w)) * duration
-        self._draw_playhead()
-        self.playhead_label.set(f"Playhead: {_sec_to_hhmmss(self._playhead_sec)}")
-
     # ------------------------------------------------------------
-    # Run cutter (XML)
+    # Generate XML
     # ------------------------------------------------------------
     def run(self):
         if self._running:
@@ -627,7 +630,7 @@ class App(tk.Tk):
             return
 
         argv = self._build_argv(inp)
-        self._append_log("\n---\nRunning...\n\n")
+        self._append_log("\n---\nRunning…\n\n")
         self._set_running(True)
 
         def worker():
@@ -672,11 +675,11 @@ class App(tk.Tk):
     def _init_vlc_if_available(self):
         if self._vlc is None:
             self._append_log(
-                "[VLC] python-vlc not available or VLC DLLs not found.\n"
-                f"      VLC dir detected: {getattr(self, '_vlc_dll_dir', None)}\n"
-                f"      Error: {self._vlc_err}\n"
-                "      Fix: install VLC, or set VLC_DIR env var to your VLC folder.\n\n"
+                "[VLC] Not available.\n"
+                f"      VLC dir detected: {self._vlc_dll_dir}\n"
+                f"      Error: {self._vlc_err}\n\n"
             )
+            return
 
         try:
             self._vlc_instance = self._vlc.Instance()
@@ -693,45 +696,43 @@ class App(tk.Tk):
             self._vlc_instance = None
             self._vlc_player = None
 
-    def load_in_player(self):
-        inp = self.input_path.get().strip()
-        if not inp or not os.path.isfile(inp):
-            messagebox.showerror("Missing input", "Please choose a valid media file.")
-            return
-        self._vlc_load_media(inp)
-
     def _vlc_load_media(self, path: str):
         if not self._vlc_player or not self._vlc_instance:
-            messagebox.showerror("VLC not ready", "Embedded player isn't available. Install VLC + python-vlc.")
             return
 
         try:
+            if self._vlc_loaded_path == path:
+                return
+
             self._vlc_media = self._vlc_instance.media_new(path)
             self._vlc_player.set_media(self._vlc_media)
             self._vlc_loaded_path = path
             self._vlc_duration_sec = 0.0
-            self._vlc_is_playing = False
-
-            # Prime playback briefly to populate duration (VLC often reports 0 until played)
-            self._vlc_player.play()
-            self.after(120, self._vlc_player.pause)
-
             self._append_log(f"[VLC] Loaded: {path}\n")
+
+            self._plan = None
+            self.preview_status.set("(No analysis yet)")
+            self._playhead_sec = 0.0
+            self._draw_timeline_base()
+
         except Exception as e:
-            messagebox.showerror("Player error", str(e))
+            self._append_log(f"[VLC] Load error: {e}\n")
 
     def player_toggle_play(self):
         if not self._vlc_player:
-            messagebox.showerror("VLC not ready", "Embedded player isn't available. Install VLC + python-vlc.")
             return
+
         try:
             if self._vlc_player.is_playing():
                 self._vlc_player.pause()
             else:
-                if self._vlc_loaded_path is None:
-                    self.load_in_player()
-                else:
+                if self._vlc_loaded_path and os.path.isfile(self._vlc_loaded_path):
                     self._vlc_player.play()
+                else:
+                    p = self.input_path.get().strip()
+                    if p and os.path.isfile(p):
+                        self._vlc_load_media(p)
+                        self.after(50, lambda: self._vlc_player.play())
         except Exception as e:
             self._append_log(f"[VLC] Play/Pause error: {e}\n")
 
@@ -746,20 +747,51 @@ class App(tk.Tk):
     def player_nudge(self, delta_sec: float):
         if not self._vlc_player:
             return
+        t = max(0.0, self._current_player_time_sec() + float(delta_sec))
+        self._playhead_sec = t
+        self._draw_playhead()
+        self._safe_seek_player(t)
+
+    def _current_player_time_sec(self) -> float:
+        if not self._vlc_player:
+            return 0.0
         try:
             ms = self._vlc_player.get_time()
-            if ms < 0:
-                ms = 0
-            self._vlc_player.set_time(int(max(0, ms + delta_sec * 1000)))
+            if ms is None or ms < 0:
+                return 0.0
+            return float(ms) / 1000.0
         except:
-            pass
+            return 0.0
 
-    def seek_player_to_playhead(self):
-        t = float(self._playhead_sec)
-        if self._vlc_player and self._vlc_loaded_path:
-            self._vlc_player.set_time(int(max(0.0, t) * 1000.0))
+    def _safe_seek_player(self, t_sec: float):
+        if not self._vlc_player or self._safe_seek_inflight:
             return
-        messagebox.showinfo("Player", "Load a file in the embedded player first.")
+
+        self._safe_seek_inflight = True
+        was_playing = False
+        try:
+            was_playing = bool(self._vlc_player.is_playing())
+        except:
+            was_playing = False
+
+        def do_seek():
+            try:
+                if was_playing:
+                    self._vlc_player.pause()
+                self._vlc_player.set_time(int(max(0.0, t_sec) * 1000.0))
+            except:
+                pass
+
+        def resume():
+            try:
+                if was_playing:
+                    self._vlc_player.play()
+            except:
+                pass
+            self._safe_seek_inflight = False
+
+        do_seek()
+        self.after(80, resume)
 
     def _apply_volume(self):
         if not self._vlc_player:
@@ -777,25 +809,6 @@ class App(tk.Tk):
             return
         self._apply_volume()
 
-    def _set_seek_drag(self, dragging: bool):
-        self._seek_is_dragging = dragging
-        if not dragging:
-            self.on_seek_slider(self.seek_slider.get())
-
-    def on_seek_slider(self, v):
-        if not self._vlc_player or not self._vlc_loaded_path:
-            return
-        if self._seek_is_dragging:
-            return
-
-        try:
-            frac = float(v)
-            frac = max(0.0, min(1.0, frac))
-            if self._vlc_duration_sec > 0:
-                self._vlc_player.set_time(int(frac * self._vlc_duration_sec * 1000.0))
-        except:
-            pass
-
     def _start_vlc_poll(self):
         if self._vlc_poll_after_id is not None:
             self.after_cancel(self._vlc_poll_after_id)
@@ -807,21 +820,24 @@ class App(tk.Tk):
             return
 
         try:
-            ms = self._vlc_player.get_time()
-            if ms < 0:
-                ms = 0
-
             len_ms = self._vlc_player.get_length()
             if len_ms and len_ms > 0:
                 self._vlc_duration_sec = float(len_ms) / 1000.0
 
-            cur = float(ms) / 1000.0
+            cur = self._current_player_time_sec()
             dur = float(self._vlc_duration_sec)
 
-            if dur > 0 and not self._seek_is_dragging:
-                self.seek_slider.set(cur / dur)
+            if dur > 0:
+                self.time_label.set(f"{_sec_to_hhmmss(cur)} / {_sec_to_hhmmss(dur)}")
+                self._playhead_sec = cur
+                self._draw_playhead()
+            else:
+                self.time_label.set(f"{_sec_to_hhmmss(cur)} / 0:00.000")
 
-            self.player_time_label.set(f"{_sec_to_hhmmss(cur)} / {_sec_to_hhmmss(dur)}")
+            if (self._plan is None) and dur > 0 and self.timeline_canvas.find_all():
+                # Keep base timeline usable even before analysis
+                self._draw_timeline_base()
+
         except:
             pass
 

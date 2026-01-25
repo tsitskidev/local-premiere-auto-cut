@@ -10,7 +10,17 @@ class SilenceInterval:
 
 
 def run(cmd: List[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    if os.name == "nt":
+        # Prevent console windows from popping up (ffmpeg/ffprobe)
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+        kwargs["startupinfo"] = si
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    return subprocess.run(cmd, **kwargs)
 
 
 def require_tool(name: str) -> None:
@@ -137,14 +147,10 @@ def merge_overlaps(intervals: List[SilenceInterval], duration: float) -> List[Si
 
 
 def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float, min_keep: float) -> List[Tuple[float, float]]:
-    removes: List[SilenceInterval] = []
-    for iv in silences:
-        rs = max(0.0, iv.start - pad)
-        re_ = duration if math.isinf(iv.end) else min(duration, iv.end + pad)
-        if re_ > rs:
-            removes.append(SilenceInterval(rs, re_))
-    removes = merge_overlaps(removes, duration)
+    # 1) Merge silences WITHOUT padding
+    removes = merge_overlaps(silences, duration)
 
+    # 2) Invert to keeps
     keeps: List[Tuple[float, float]] = []
     cursor = 0.0
     for iv in removes:
@@ -157,8 +163,31 @@ def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float
     if duration > cursor and (duration - cursor) >= min_keep:
         keeps.append((cursor, duration))
 
-    return keeps
+    # 3) Pad the KEEPS outward (what you want)
+    if pad > 0.0 and keeps:
+        padded = []
+        for a, b in keeps:
+            a2 = max(0.0, a - pad)
+            b2 = min(duration, b + pad)
+            if b2 > a2:
+                padded.append((a2, b2))
 
+        # Merge overlaps caused by padding
+        padded.sort(key=lambda x: x[0])
+        merged: List[Tuple[float, float]] = []
+        for a, b in padded:
+            if not merged:
+                merged.append((a, b))
+                continue
+            la, lb = merged[-1]
+            if a <= lb:
+                merged[-1] = (la, max(lb, b))
+            else:
+                merged.append((a, b))
+
+        keeps = merged
+
+    return keeps
 
 def keeps_to_removes(keeps: List[Tuple[float, float]], duration: float) -> List[Tuple[float, float]]:
     removes: List[Tuple[float, float]] = []

@@ -717,47 +717,85 @@ class App(tk.Tk):
     def _cuts(self) -> list[tuple[float, float]]:
         if not self._plan:
             return []
-        return [(float(a), float(b)) for a, b in self._plan.get("removes", []) if float(b) > float(a)]
+        cuts = [(float(a), float(b)) for a, b in self._plan.get("removes", []) if float(b) > float(a)]
+        cuts.sort(key=lambda x: x[0])
+        return cuts
 
     def jump_next_cut(self):
         cuts = self._cuts()
         if not cuts:
             return
-        t = float(self._current_player_time_sec())
+
+        eps = 0.001  # 1ms - prevents re-selecting the same boundary
+        t = float(self._playhead_sec)
+
         for a, b in cuts:
+            # If we're inside a cut, jump to its end (plus eps)
             if a <= t < b:
-                self._playhead_sec = b
-                self._safe_seek_player(b)
-                self._set_view_center_time(b)
+                nt = min(self._timeline_duration(), b + eps)
+                self._playhead_sec = nt
+                self._safe_seek_player(nt)
+                self._set_view_center_time(nt)
                 self._draw_all_timelines()
                 return
-            if a > t:
-                self._playhead_sec = a
-                self._safe_seek_player(a)
-                self._set_view_center_time(a)
+
+            # Otherwise jump to the next cut start (plus eps)
+            if a > t + eps:
+                nt = min(self._timeline_duration(), a + eps)
+                self._playhead_sec = nt
+                self._safe_seek_player(nt)
+                self._set_view_center_time(nt)
                 self._draw_all_timelines()
                 return
+
+        # If we're past the last cut, go to end
+        dur = self._timeline_duration()
+        if dur > 0:
+            nt = max(0.0, dur - eps)
+            self._playhead_sec = nt
+            self._safe_seek_player(nt)
+            self._set_view_center_time(nt)
+            self._draw_all_timelines()
 
     def jump_prev_cut(self):
         cuts = self._cuts()
         if not cuts:
             return
-        t = float(self._current_player_time_sec())
-        prev = None
+
+        eps = 0.001
+        t = float(self._playhead_sec)
+
+        # If inside a cut, jump to its start (minus eps)
         for a, b in cuts:
             if a <= t < b:
-                self._playhead_sec = a
-                self._safe_seek_player(a)
-                self._set_view_center_time(a)
+                nt = max(0.0, a - eps)
+                self._playhead_sec = nt
+                self._safe_seek_player(nt)
+                self._set_view_center_time(nt)
                 self._draw_all_timelines()
                 return
-            if a < t:
-                prev = a
-        if prev is not None:
-            self._playhead_sec = prev
-            self._safe_seek_player(prev)
-            self._set_view_center_time(prev)
+
+        # Otherwise jump to the previous cut start
+        prev_a = None
+        for a, _b in cuts:
+            if a < t - eps:
+                prev_a = a
+            else:
+                break
+
+        if prev_a is not None:
+            nt = max(0.0, prev_a - eps)
+            self._playhead_sec = nt
+            self._safe_seek_player(nt)
+            self._set_view_center_time(nt)
             self._draw_all_timelines()
+            return
+
+        # If we're before the first cut, go to 0
+        self._playhead_sec = 0.0
+        self._safe_seek_player(0.0)
+        self._set_view_center_time(0.0)
+        self._draw_all_timelines()
 
     # ---------------- Generate XML ----------------
     def run(self):

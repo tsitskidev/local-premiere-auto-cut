@@ -160,7 +160,6 @@ def _try_import_vlc():
     except Exception as e:
         return None, f"{type(e).__name__}: {e}"
 
-
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -172,6 +171,7 @@ class App(tk.Tk):
         self._log_q = queue.Queue()
         self._running = False
 
+        self._restoring_session = True
         self._plan = None
         self._playhead_sec = 0.0
 
@@ -211,11 +211,64 @@ class App(tk.Tk):
         self._install_var_traces()
         self._tick_logs()
 
+        self.after(250, self._restore_session_ui)
+        self.bind_all("<space>", self._on_spacebar, add="+")
+
         self.after(150, self._init_vlc_if_available)
         self.after(200, self._schedule_auto_load)
 
+    def _vlc_parse_duration_async(self, media):
+        def worker():
+            try:
+                # Ask VLC to parse metadata so duration becomes available without playing.
+                parse = getattr(media, "parse_with_options", None)
+                if callable(parse):
+                    # local = 1 in some builds; flags enum varies across VLC versions
+                    flag = getattr(self._vlc, "MediaParseFlag", None)
+                    local_flag = getattr(flag, "local", 1) if flag else 1
+                    parse(local_flag, timeout=1500)
+                else:
+                    # Older VLC binding
+                    media.parse()
+
+                dur_ms = media.get_duration()
+                if dur_ms and dur_ms > 0:
+                    self._vlc_duration_sec = float(dur_ms) / 1000.0
+                    self.after(0, self._draw_all_timelines)
+            except:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
     # ---------------- Settings ----------------
     def _collect_settings(self) -> dict:
+        sess = {
+            "px_per_sec": float(self._px_per_sec),
+            "playhead_sec": float(self._playhead_sec),
+            "xview": float(self.timeline_canvas.xview()[0]) if hasattr(self, "timeline_canvas") else 0.0,
+        }
+
+        path = self.input_path.get().strip()
+        if path and os.path.isfile(path):
+            try:
+                st = os.stat(path)
+                sess["file_size"] = int(st.st_size)
+                sess["file_mtime"] = float(st.st_mtime)
+            except:
+                pass
+
+        # Store analysis plan so reopening shows it instantly
+        if self._plan:
+            # Keep it JSON-safe and small
+            sess["plan"] = {
+                "duration": float(self._plan.get("duration", 0.0)),
+                "kept_total": float(self._plan.get("kept_total", 0.0)),
+                "removed_total": float(self._plan.get("removed_total", 0.0)),
+                "keeps_count": int(self._plan.get("keeps_count", 0)),
+                "keeps": [(float(a), float(b)) for a, b in self._plan.get("keeps", [])],
+                "removes": [(float(a), float(b)) for a, b in self._plan.get("removes", [])],
+            }
+
         return {
             "input_path": self.input_path.get(),
             "threshold": float(self.threshold.get()),
@@ -225,6 +278,7 @@ class App(tk.Tk):
             "audio_stream": self.audio_stream.get(),
             "regen_mono": bool(self.regen_mono.get()),
             "volume": int(self.volume.get()),
+            "session": sess,
         }
 
     def _apply_settings(self, data: dict):
@@ -263,7 +317,8 @@ class App(tk.Tk):
         self._schedule_auto_load()
 
     def _install_var_traces(self):
-        for v in [self.input_path, self.threshold, self.min_silence, self.pad, self.min_keep, self.audio_stream, self.regen_mono, self.volume]:
+        for v in [self.input_path, self.threshold, self.min_silence, self.pad, self.min_keep, self.audio_stream,
+                  self.regen_mono, self.volume]:
             try:
                 v.trace_add("write", self._mark_settings_dirty)
             except:
@@ -272,6 +327,82 @@ class App(tk.Tk):
             self.input_path.trace_add("write", lambda *_: self._schedule_auto_load())
         except:
             pass
+
+    def _restore_session_ui(self):
+        self._restoring_session = True
+        data = _load_settings()
+        sess = data.get("session", {}) if isinstance(data, dict) else {}
+
+        # Restore zoom
+        try:
+            pps = float(sess.get("px_per_sec", DEFAULT_ZOOM_PX_PER_SEC))
+            self._px_per_sec = max(MIN_ZOOM_PX_PER_SEC, min(MAX_ZOOM_PX_PER_SEC, pps))
+        except:
+            pass
+
+        # Restore playhead
+        try:
+            self._playhead_sec = float(sess.get("playhead_sec", 0.0))
+        except:
+            self._playhead_sec = 0.0
+
+        # Restore analysis plan if it matches the same media file (size+mtime check)
+        try:
+            path = self.input_path.get().strip()
+            ok = True
+            if path and os.path.isfile(path):
+                self._vlc_load_media(path)
+                st = os.stat(path)
+                fs = sess.get("file_size", None)
+                fm = sess.get("file_mtime", None)
+                if fs is not None and int(fs) != int(st.st_size):
+                    ok = False
+                if fm is not None and abs(float(fm) - float(st.st_mtime)) > 0.5:
+                    ok = False
+            else:
+                ok = False
+
+            plan = sess.get("plan", None)
+            if ok and isinstance(plan, dict):
+                self._plan = {
+                    "duration": float(plan.get("duration", 0.0)),
+                    "kept_total": float(plan.get("kept_total", 0.0)),
+                    "removed_total": float(plan.get("removed_total", 0.0)),
+                    "keeps_count": int(plan.get("keeps_count", 0)),
+                    "keeps": [(float(a), float(b)) for a, b in plan.get("keeps", [])],
+                    "removes": [(float(a), float(b)) for a, b in plan.get("removes", [])],
+                }
+
+                dur = self._plan["duration"]
+                self.preview_status.set(
+                    f"Duration {_sec_to_hhmmss(dur)} · Keep {_sec_to_hhmmss(self._plan['kept_total'])} · "
+                    f"Cut {_sec_to_hhmmss(self._plan['removed_total'])} · Segments {self._plan['keeps_count']}"
+                )
+            else:
+                self._plan = None
+        except:
+            self._plan = None
+
+        # Draw and restore scroll/viewport
+        self._draw_all_timelines()
+        try:
+            xv = float(sess.get("xview", 0.0))
+            xv = max(0.0, min(1.0, xv))
+            self.timeline_canvas.xview_moveto(xv)
+        except:
+            pass
+
+        # Ensure the video is loaded (you already auto-load via input_path changes)
+        self._schedule_auto_load()
+        self._restoring_session = False
+
+    def _touch_session(self):
+        self._mark_settings_dirty()
+
+    def _on_spacebar(self, ev=None):
+        self.player_toggle_play()
+        self._touch_session()
+        return "break"
 
     # ---------------- UI ----------------
     def _build_ui(self):
@@ -295,7 +426,8 @@ class App(tk.Tk):
         btns = ttk.Frame(file_box)
         btns.pack(fill="x", pady=(8, 0))
         ttk.Button(btns, text="Browse…", command=self.pick_file).pack(side="left", fill="x", expand=True)
-        ttk.Button(btns, text="Reset", command=self.reset_defaults).pack(side="left", padx=(8, 0), fill="x", expand=True)
+        ttk.Button(btns, text="Reset", command=self.reset_defaults).pack(side="left", padx=(8, 0), fill="x",
+                                                                         expand=True)
 
         settings_box = ttk.LabelFrame(left, text="Cut Settings", padding=10)
         settings_box.pack(fill="x", pady=(10, 0))
@@ -316,7 +448,8 @@ class App(tk.Tk):
         ttk.Label(rr, text="Audio stream").pack(side="left")
         ttk.Entry(rr, textvariable=self.audio_stream).pack(side="right", fill="x", expand=True)
 
-        ttk.Checkbutton(settings_box, text="Re-create mono proxy", variable=self.regen_mono).pack(anchor="w", pady=(6, 0))
+        ttk.Checkbutton(settings_box, text="Re-create mono proxy", variable=self.regen_mono).pack(anchor="w",
+                                                                                                  pady=(6, 0))
 
         actions = ttk.LabelFrame(left, text="Actions", padding=10)
         actions.pack(fill="x", pady=(10, 0))
@@ -347,8 +480,10 @@ class App(tk.Tk):
         ttk.Button(transport, text="Prev Cut", command=self.jump_prev_cut).pack(side="left", padx=(10, 0))
         ttk.Button(transport, text="Next Cut", command=self.jump_next_cut).pack(side="left", padx=(6, 0))
 
-        ttk.Button(transport, text="⏮ 1s", width=6, command=lambda: self.player_nudge(-1.0)).pack(side="left", padx=(10, 0))
-        ttk.Button(transport, text="1s ⏭", width=6, command=lambda: self.player_nudge(1.0)).pack(side="left", padx=(6, 0))
+        ttk.Button(transport, text="⏮ 1s", width=6, command=lambda: self.player_nudge(-1.0)).pack(side="left",
+                                                                                                  padx=(10, 0))
+        ttk.Button(transport, text="1s ⏭", width=6, command=lambda: self.player_nudge(1.0)).pack(side="left",
+                                                                                                 padx=(6, 0))
 
         ttk.Label(transport, text="Vol").pack(side="left", padx=(14, 6))
         self.vol_slider = ttk.Scale(transport, from_=0, to=100, orient="horizontal", command=self.on_volume_slider)
@@ -449,7 +584,8 @@ class App(tk.Tk):
         return _load_module_from_path("cut_silence_to_fcpxml", sp)
 
     def _build_argv(self, inp: str):
-        argv = [inp, "--threshold", str(self.threshold.get()), "--min_silence", str(self.min_silence.get()), "--pad", str(self.pad.get()), "--min_keep", str(self.min_keep.get())]
+        argv = [inp, "--threshold", str(self.threshold.get()), "--min_silence", str(self.min_silence.get()), "--pad",
+                str(self.pad.get()), "--min_keep", str(self.min_keep.get())]
         aud = self.audio_stream.get().strip()
         if aud:
             argv += ["--audio_stream", aud]
@@ -875,20 +1011,29 @@ class App(tk.Tk):
 
         try:
             if self._vlc_loaded_path == path:
+                # Same file: do not nuke plan; just ensure timelines are drawn
+                self._draw_all_timelines()
                 return
 
             self._vlc_player.stop()
             media = self._vlc_instance.media_new(path)
             self._vlc_player.set_media(media)
+
             self._vlc_loaded_path = path
             self._vlc_duration_sec = 0.0
 
-            self._plan = None
-            self.preview_status.set("(No analysis yet)")
-            self._playhead_sec = 0.0
-            self._draw_all_timelines()
+            # IMPORTANT: don't clear plan when restoring session
+            if not getattr(self, "_restoring_session", False):
+                self._plan = None
+                self.preview_status.set("(No analysis yet)")
+                self._playhead_sec = 0.0
 
+            # If you added the parse-duration async helper, call it here:
+            # self._vlc_parse_duration_async(media)
+
+            self._draw_all_timelines()
             self._append_log(f"[VLC] Loaded: {path}\n")
+
         except Exception as e:
             self._append_log(f"[VLC] Load error: {e}\n")
 
@@ -1017,6 +1162,7 @@ class App(tk.Tk):
 if __name__ == "__main__":
     try:
         import ctypes
+
         ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except:
         pass

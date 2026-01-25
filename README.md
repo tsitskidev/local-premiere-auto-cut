@@ -11,6 +11,7 @@ It lets you:
 - Reopen the app and continue exactly where you left off
 
 This isn't super well documented and I'm not planning on supporting it too well so good luck with everything, but just run the build.bat and open the built .exe in /dist
+
 You need VLC (MAKE SURE IT IS THE x64 VERSION, I MEAN IT) and python-vlc to build it. 
 
 Usage:

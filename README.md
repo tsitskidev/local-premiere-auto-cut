@@ -19,6 +19,7 @@ Usage:
 2. Analyze it
 3. When you're happy with the cut segments hit Generate XML
 4. Import the generated XML into premiere, it'll automatically detect it as a sequence
-5. Enjoy! :)
+5. Enjoy :)
+
 
 <img width="1438" height="802" alt="image" src="https://github.com/user-attachments/assets/734435b6-b167-4abb-9c12-40b23629e5c6" />

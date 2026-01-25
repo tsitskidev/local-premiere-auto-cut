@@ -1,2 +1,0 @@
-pip install pyinstaller
-pyinstaller --noconsole --onefile --add-data "cut_silence_to_fcpxml.py;." silencecut_gui.py

@@ -1,6 +1,6 @@
 import argparse, os, re, subprocess, sys, math
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 
 @dataclass
@@ -41,9 +41,7 @@ def ffprobe_fields(path: str, select: str, entries: str) -> dict:
 
 
 def get_media_info(path: str) -> dict:
-    # Video stream
     v = ffprobe_fields(path, "v:0", "stream=width,height,avg_frame_rate,r_frame_rate,sample_aspect_ratio,field_order")
-    # Audio stream
     a = ffprobe_fields(path, "a:0", "stream=sample_rate,channels,channel_layout")
     info = {}
     info.update(v)
@@ -61,7 +59,6 @@ def parse_rate(rate_str: str) -> float:
 
 
 def fps_to_timebase_ntsc_and_real_fps(fps: float) -> Tuple[int, bool, float]:
-    # FCP7 uses integer timebase plus ntsc flag for 29.97/59.94.
     if abs(fps - (30000 / 1001)) < 0.05 or abs(fps - 29.97) < 0.05:
         return 30, True, (30 / 1.001)
     if abs(fps - (60000 / 1001)) < 0.05 or abs(fps - 59.94) < 0.05:
@@ -75,7 +72,6 @@ def sec_to_frames(sec: float, fps_real: float) -> int:
 
 
 def create_mono_proxy(input_path: str, mono_path: str, sample_rate: int = 48000) -> None:
-    # Video: copy. Audio: unambiguous mono PCM in MOV (Premiere-friendly).
     cmd = ["ffmpeg", "-hide_banner", "-y", "-i", input_path, "-c:v", "copy", "-c:a", "pcm_s16le", "-ac", "1", "-ar", str(sample_rate), mono_path]
     p = run(cmd)
     if p.returncode != 0 or not os.path.isfile(mono_path) or os.path.getsize(mono_path) == 0:
@@ -83,7 +79,6 @@ def create_mono_proxy(input_path: str, mono_path: str, sample_rate: int = 48000)
 
 
 def run_ffmpeg_silencedetect(path: str, threshold_db: float, min_silence: float, audio_stream: Optional[str]) -> str:
-    # Detect on ORIGINAL, but force mono during analysis for stability.
     cmd = ["ffmpeg", "-hide_banner", "-i", path]
     if audio_stream:
         cmd += ["-map", audio_stream]
@@ -165,8 +160,19 @@ def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float
     return keeps
 
 
+def keeps_to_removes(keeps: List[Tuple[float, float]], duration: float) -> List[Tuple[float, float]]:
+    removes: List[Tuple[float, float]] = []
+    cursor = 0.0
+    for ks, ke in keeps:
+        if ks > cursor:
+            removes.append((cursor, ks))
+        cursor = max(cursor, ke)
+    if duration > cursor:
+        removes.append((cursor, duration))
+    return [(a, b) for a, b in removes if b > a]
+
+
 def sar_to_par(sar: str) -> Tuple[int, int]:
-    # sample_aspect_ratio like "1:1" or "4:3" or "0:1"
     if not sar or ":" not in sar:
         return (1, 1)
     a, b = sar.split(":", 1)
@@ -181,12 +187,9 @@ def sar_to_par(sar: str) -> Tuple[int, int]:
 
 
 def field_order_to_fcp(field: str) -> str:
-    # ffprobe field_order can be: progressive, tt, bb, tb, bt, unknown
-    # FCP7 wants: none / upper / lower (common). We'll map best-effort.
     f = (field or "").lower()
     if f == "progressive" or f == "unknown" or f == "":
         return "none"
-    # Many sources use top-first as "tt" or "tb"
     if f in ("tt", "tb"):
         return "upper"
     if f in ("bb", "bt"):
@@ -195,7 +198,6 @@ def field_order_to_fcp(field: str) -> str:
 
 
 def make_fcp7_xml(link_media_path: str, keeps: List[Tuple[float, float]], seq_name: str) -> str:
-    # IMPORTANT: link_media_path should be the mono proxy so Premiere can relink.
     dur = get_duration_seconds(link_media_path)
     info = get_media_info(link_media_path)
 
@@ -205,7 +207,7 @@ def make_fcp7_xml(link_media_path: str, keeps: List[Tuple[float, float]], seq_na
     timebase, ntsc, fps_real = fps_to_timebase_ntsc_and_real_fps(fps)
 
     sample_rate = int(info.get("sample_rate", "48000"))
-    channels = 1  # forced mono proxy
+    channels = 1
     sar = info.get("sample_aspect_ratio", "1:1")
     par_n, par_d = sar_to_par(sar)
     field = field_order_to_fcp(info.get("field_order", "progressive"))
@@ -323,7 +325,6 @@ def make_fcp7_xml(link_media_path: str, keeps: List[Tuple[float, float]], seq_na
           </gap>
         """)
 
-    # Sequence-level format settings (this is what makes Premiere create a matching sequence)
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="4">
@@ -370,10 +371,35 @@ def make_fcp7_xml(link_media_path: str, keeps: List[Tuple[float, float]], seq_na
     return xml
 
 
-def main(argv=None):
-    import argparse
-    import sys
+def compute_plan(input_path: str, threshold: float, min_silence: float, pad: float, min_keep: float, audio_stream: Optional[str]) -> Dict[str, Any]:
+    require_tool("ffmpeg")
+    require_tool("ffprobe")
 
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    orig_duration = get_duration_seconds(input_path)
+    stderr = run_ffmpeg_silencedetect(input_path, threshold, min_silence, audio_stream)
+    silences_raw = parse_silences(stderr)
+    silences = merge_overlaps(silences_raw, orig_duration)
+    keeps = invert_to_keeps(silences, orig_duration, pad, min_keep)
+    removes = keeps_to_removes(keeps, orig_duration)
+
+    kept_total = sum(max(0.0, b - a) for a, b in keeps)
+    removed_total = sum(max(0.0, b - a) for a, b in removes)
+
+    return {
+        "duration": orig_duration,
+        "keeps": keeps,
+        "removes": removes,
+        "kept_total": kept_total,
+        "removed_total": removed_total,
+        "silences_count": len(silences),
+        "keeps_count": len(keeps),
+    }
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Input video/audio file")
     parser.add_argument("--threshold", type=float, default=-35)
@@ -389,12 +415,10 @@ def main(argv=None):
 
     if not os.path.isfile(args.input):
         print("Input file not found:", args.input, file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     in_dir = os.path.dirname(os.path.abspath(args.input))
     base = os.path.splitext(os.path.basename(args.input))[0]
-
-    # Make a uniquely named proxy so Premiere doesn't “helpfully” match the stereo original by name.
     mono_path = os.path.join(in_dir, f"__SILENCECUT_MONO_PROXY__{base}.mov")
 
     if args.regen_mono or not os.path.isfile(mono_path) or os.path.getsize(mono_path) == 0:
@@ -403,28 +427,24 @@ def main(argv=None):
     else:
         print("Using existing mono proxy:", mono_path)
 
-    # Detect on original (cuts behave like before), but -ac 1 in the detection step for stability
-    orig_duration = get_duration_seconds(args.input)
-    stderr = run_ffmpeg_silencedetect(args.input, args.threshold, args.min_silence, args.audio_stream)
-    silences_raw = parse_silences(stderr)
-    silences = merge_overlaps(silences_raw, orig_duration)
-    keeps = invert_to_keeps(silences, orig_duration, args.pad, args.min_keep)
+    plan = compute_plan(args.input, args.threshold, args.min_silence, args.pad, args.min_keep, args.audio_stream)
+    keeps = plan["keeps"]
 
-    print(f"Detected silences: {len(silences)} | Kept segments: {len(keeps)}")
+    print(f"Detected silences: {plan['silences_count']} | Kept segments: {plan['keeps_count']}")
 
     seq_name = f"{base}_NoSilence"
     out_xml = os.path.join(in_dir, f"{base}__nosilence.XML")
 
-    # Link XML to the mono proxy so Premiere can relink without channel-type errors
     xml = make_fcp7_xml(mono_path, keeps, seq_name)
     with open(out_xml, "w", encoding="utf-8", newline="\n") as f:
         f.write(xml)
 
-    kept_total = sum(max(0.0, b - a) for a, b in keeps)
     print("Wrote:", out_xml)
     print("Linked media (mono proxy):", mono_path)
-    print(f"Original duration: {orig_duration/60:.3f}m | Kept: {kept_total/60:.3f}m | Segments: {len(keeps)}")
+    print(f"Original duration: {plan['duration']/60:.3f}m | Kept: {plan['kept_total']/60:.3f}m | Segments: {plan['keeps_count']}")
     print("Import the .XML into Premiere. It should create a sequence matching the proxy (resolution/fps/etc).")
+    return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

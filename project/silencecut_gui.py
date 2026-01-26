@@ -160,6 +160,25 @@ def _try_import_vlc():
     except Exception as e:
         return None, f"{type(e).__name__}: {e}"
 
+class QueueWriter:
+    def __init__(self, q, prefix=""):
+        self.q = q
+        self.prefix = prefix
+        self._buf = ""
+
+    def write(self, s):
+        if not s:
+            return
+        self._buf += s
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            self.q.put(self.prefix + line + "\n")
+
+    def flush(self):
+        if self._buf:
+            self.q.put(self.prefix + self._buf)
+            self._buf = ""
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -616,10 +635,6 @@ class App(tk.Tk):
 
     def _set_running(self, running: bool):
         self._running = running
-        if running:
-            self.progress.start(10)
-        else:
-            self.progress.stop()
 
     # ---------------- File picker + auto-load ----------------
     def pick_file(self):
@@ -885,18 +900,19 @@ class App(tk.Tk):
         audio_stream = self.audio_stream.get().strip() or None
 
         def worker():
-            buf = io.StringIO()
+            outw = QueueWriter(self._log_q, "")
+            errw = QueueWriter(self._log_q, "")
+
             try:
                 mod = self._load_cutter()
                 if not hasattr(mod, "compute_plan"):
                     raise RuntimeError("cut_silence_to_fcpxml.py is missing compute_plan(...).")
 
-                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                with contextlib.redirect_stdout(outw), contextlib.redirect_stderr(errw):
                     plan = mod.compute_plan(inp, threshold, min_silence, pad, min_keep, audio_stream)
 
-                out = buf.getvalue()
-                if out:
-                    self._log_q.put(out)
+                outw.flush()
+                errw.flush()
 
                 self._plan = plan
                 dur = float(plan["duration"])
@@ -910,9 +926,11 @@ class App(tk.Tk):
                 self.after(0, self._draw_all_timelines)
 
             except Exception as e:
-                out = buf.getvalue()
-                if out:
-                    self._log_q.put(out)
+                try:
+                    outw.flush()
+                    errw.flush()
+                except:
+                    pass
                 self.after(0, lambda: self.preview_status.set("(Analysis failed)"))
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
 
@@ -1017,18 +1035,19 @@ class App(tk.Tk):
         self._set_running(True)
 
         def worker():
-            buf = io.StringIO()
+            outw = QueueWriter(self._log_q, "")
+            errw = QueueWriter(self._log_q, "")
+
             try:
                 mod = self._load_cutter()
                 if not hasattr(mod, "main"):
                     raise RuntimeError("cut_silence_to_fcpxml.py does not expose main(argv).")
 
-                with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                with contextlib.redirect_stdout(outw), contextlib.redirect_stderr(errw):
                     rc = mod.main(argv)
 
-                out = buf.getvalue()
-                if out:
-                    self._log_q.put(out)
+                outw.flush()
+                errw.flush()
 
                 if rc is None:
                     rc = 0
@@ -1041,10 +1060,13 @@ class App(tk.Tk):
                 else:
                     self._log_q.put(f"\nFailed (exit code {rc}).\n")
                     self.after(0, lambda: messagebox.showerror("Error", f"Failed (exit code {rc}). See log."))
+
             except Exception as e:
-                out = buf.getvalue()
-                if out:
-                    self._log_q.put(out)
+                try:
+                    outw.flush()
+                    errw.flush()
+                except:
+                    pass
                 self._log_q.put(f"\nERROR: {e}\n")
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:

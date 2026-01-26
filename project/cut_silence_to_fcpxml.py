@@ -9,14 +9,18 @@ class SilenceInterval:
     end: float
 
 
-def run(cmd: List[str]) -> subprocess.CompletedProcess:
-    kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def run(cmd: List[str], timeout_sec: int = 1800) -> subprocess.CompletedProcess:
+    kwargs = dict(
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        stdin=subprocess.DEVNULL,  # critical: ffmpeg can’t wait for input
+        timeout=timeout_sec,  # critical: don’t hang forever
+    )
 
     if os.name == "nt":
-        # Prevent console windows from popping up (ffmpeg/ffprobe)
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
         kwargs["startupinfo"] = si
         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
@@ -30,7 +34,8 @@ def require_tool(name: str) -> None:
 
 
 def get_duration_seconds(path: str) -> float:
-    cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path]
+    cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1",
+           path]
     p = run(cmd)
     if p.returncode != 0 or not p.stdout.strip():
         raise RuntimeError(f"ffprobe failed to read duration for: {path}\n{p.stderr}")
@@ -38,7 +43,8 @@ def get_duration_seconds(path: str) -> float:
 
 
 def ffprobe_fields(path: str, select: str, entries: str) -> dict:
-    cmd = ["ffprobe", "-v", "error", "-select_streams", select, "-show_entries", entries, "-of", "default=noprint_wrappers=1", path]
+    cmd = ["ffprobe", "-v", "error", "-select_streams", select, "-show_entries", entries, "-of",
+           "default=noprint_wrappers=1", path]
     p = run(cmd)
     if p.returncode != 0:
         return {}
@@ -82,10 +88,31 @@ def sec_to_frames(sec: float, fps_real: float) -> int:
 
 
 def create_mono_proxy(input_path: str, mono_path: str, sample_rate: int = 48000) -> None:
-    cmd = ["ffmpeg", "-hide_banner", "-y", "-i", input_path, "-c:v", "copy", "-c:a", "pcm_s16le", "-ac", "1", "-ar", str(sample_rate), mono_path]
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-y",
+        "-i", input_path,
+        "-c:v", "copy",
+        "-c:a", "pcm_s16le",
+        "-ac", "1",
+        "-ar", str(sample_rate),
+        mono_path,
+    ]
+
     p = run(cmd)
-    if p.returncode != 0 or not os.path.isfile(mono_path) or os.path.getsize(mono_path) == 0:
-        raise RuntimeError(f"Failed to create mono proxy.\nCommand: {' '.join(cmd)}\n\n{p.stderr}")
+
+    if (
+            p.returncode != 0
+            or not os.path.isfile(mono_path)
+            or os.path.getsize(mono_path) == 0
+    ):
+        raise RuntimeError(
+            "Failed to create mono proxy.\n"
+            f"Command: {' '.join(cmd)}\n\n"
+            f"{p.stderr}"
+        )
 
 
 def run_ffmpeg_silencedetect(path: str, threshold_db: float, min_silence: float, audio_stream: Optional[str]) -> str:
@@ -146,7 +173,8 @@ def merge_overlaps(intervals: List[SilenceInterval], duration: float) -> List[Si
     return merged
 
 
-def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float, min_keep: float) -> List[Tuple[float, float]]:
+def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float, min_keep: float) -> List[
+    Tuple[float, float]]:
     # 1) Merge silences WITHOUT padding
     removes = merge_overlaps(silences, duration)
 
@@ -188,6 +216,7 @@ def invert_to_keeps(silences: List[SilenceInterval], duration: float, pad: float
         keeps = merged
 
     return keeps
+
 
 def keeps_to_removes(keeps: List[Tuple[float, float]], duration: float) -> List[Tuple[float, float]]:
     removes: List[Tuple[float, float]] = []
@@ -400,7 +429,8 @@ def make_fcp7_xml(link_media_path: str, keeps: List[Tuple[float, float]], seq_na
     return xml
 
 
-def compute_plan(input_path: str, threshold: float, min_silence: float, pad: float, min_keep: float, audio_stream: Optional[str]) -> Dict[str, Any]:
+def compute_plan(input_path: str, threshold: float, min_silence: float, pad: float, min_keep: float,
+                 audio_stream: Optional[str]) -> Dict[str, Any]:
     require_tool("ffmpeg")
     require_tool("ffprobe")
 
@@ -470,7 +500,8 @@ def main(argv=None):
 
     print("Wrote:", out_xml)
     print("Linked media (mono proxy):", mono_path)
-    print(f"Original duration: {plan['duration']/60:.3f}m | Kept: {plan['kept_total']/60:.3f}m | Segments: {plan['keeps_count']}")
+    print(
+        f"Original duration: {plan['duration'] / 60:.3f}m | Kept: {plan['kept_total'] / 60:.3f}m | Segments: {plan['keeps_count']}")
     print("Import the .XML into Premiere. It should create a sequence matching the proxy (resolution/fps/etc).")
     return 0
 

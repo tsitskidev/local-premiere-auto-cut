@@ -207,15 +207,86 @@ class App(tk.Tk):
         self._safe_seek_inflight = False
 
         self._load_settings_into_vars()
+        self._apply_dark_theme()
         self._build_ui()
         self._install_var_traces()
         self._tick_logs()
 
+        self._install_hotkeys()
         self.after(250, self._restore_session_ui)
         self.bind_all("<space>", self._on_spacebar, add="+")
 
         self.after(150, self._init_vlc_if_available)
         self.after(200, self._schedule_auto_load)
+
+    def _apply_dark_theme(self):
+        style = ttk.Style(self)
+
+        try:
+            style.theme_use("clam")
+        except:
+            pass
+
+        bg = "#121416"
+        panel = "#1b1f24"
+        panel2 = "#161a1f"
+        fg = "#e6e6e6"
+        muted = "#b5b5b5"
+        border = "#2a3038"
+        accent = "#3a86ff"
+        danger = "#d84a4a"
+        ok = "#43c46b"
+
+        # Base window
+        self.configure(bg=bg)
+        style.configure(".", background=bg, foreground=fg, fieldbackground=panel, bordercolor=border)
+        style.configure("TFrame", background=bg)
+        style.configure("TLabelframe", background=bg, foreground=fg, bordercolor=border)
+        style.configure("TLabelframe.Label", background=bg, foreground=fg, font=("Segoe UI", 11, "bold"))
+
+        style.configure("TLabel", background=bg, foreground=fg, font=("Segoe UI", 10))
+        style.configure("Muted.TLabel", background=bg, foreground=muted, font=("Segoe UI", 10))
+
+        style.configure("TEntry", fieldbackground=panel, foreground=fg, insertcolor=fg)
+        style.map("TEntry", fieldbackground=[("disabled", panel2)])
+
+        style.configure("TButton", background=panel, foreground=fg, bordercolor=border, focusthickness=0,
+                        padding=(10, 7))
+        style.map(
+            "TButton",
+            background=[("active", "#222831"), ("pressed", "#20262d")],
+            foreground=[("disabled", "#777777")]
+        )
+
+        style.configure("Accent.TButton", background=accent, foreground="#ffffff", padding=(10, 7))
+        style.map("Accent.TButton", background=[("active", "#2f6fe0"), ("pressed", "#2a63c9")])
+
+        style.configure("TCheckbutton", background=bg, foreground=fg)
+        style.map("TCheckbutton", background=[("active", bg)])
+
+        style.configure("Horizontal.TScale", background=bg)
+
+        style.configure("TScrollbar", background=panel, troughcolor=panel2, bordercolor=border, arrowcolor=fg)
+
+        # If you use a Text widget for logs, style it manually after creating it:
+        self._theme_colors = dict(bg=bg, panel=panel, panel2=panel2, fg=fg, muted=muted, border=border, accent=accent,
+                                  danger=danger, ok=ok)
+
+    def _install_hotkeys(self):
+        # 1) Kill the default "Space/Enter activates focused button" behavior.
+        # IMPORTANT: add=False (default) REPLACES class bindings instead of appending.
+        for seq in ("<KeyPress-space>", "<KeyRelease-space>", "<KeyPress-Return>", "<KeyRelease-Return>"):
+            self.bind_class("TButton", seq, lambda e: "break")
+            self.bind_class("Button", seq, lambda e: "break")
+
+        # 2) Space ALWAYS toggles playback everywhere.
+        self.bind_all("<KeyPress-space>", self._on_spacebar)
+        self.bind_all("<KeyRelease-space>", lambda e: "break")
+
+    def _on_spacebar(self, ev=None):
+        self.player_toggle_play()
+        self._touch_session()
+        return "break"
 
     def _vlc_parse_duration_async(self, media):
         def worker():
@@ -399,11 +470,6 @@ class App(tk.Tk):
     def _touch_session(self):
         self._mark_settings_dirty()
 
-    def _on_spacebar(self, ev=None):
-        self.player_toggle_play()
-        self._touch_session()
-        return "break"
-
     # ---------------- UI ----------------
     def _build_ui(self):
         root = ttk.Frame(self, padding=10)
@@ -460,9 +526,6 @@ class App(tk.Tk):
 
         self.preview_status = tk.StringVar(value="(No analysis yet)")
         ttk.Label(actions, textvariable=self.preview_status, wraplength=300).pack(fill="x", pady=(8, 0))
-
-        self.progress = ttk.Progressbar(left, mode="indeterminate")
-        self.progress.pack(fill="x", pady=(10, 0))
 
         player_box = ttk.LabelFrame(right, text="Preview", padding=10)
         player_box.pack(fill="both", expand=True)
@@ -521,6 +584,12 @@ class App(tk.Tk):
         log_box.pack(fill="both", expand=False, pady=(10, 0))
         self.log = tk.Text(log_box, height=10, wrap="word")
         self.log.pack(fill="both", expand=True)
+
+        c = self._theme_colors
+        self.log.configure(bg=c["panel2"], fg=c["fg"], insertbackground=c["fg"], selectbackground="#2b4a7a",
+                           relief="flat", highlightthickness=1, highlightbackground=c["border"])
+        self.timeline_canvas.configure(bg="#121416", highlightbackground=self._theme_colors["border"])
+        self.overview_canvas.configure(bg="#121416", highlightbackground=self._theme_colors["border"])
 
         self._append_log(
             "Tips:\n"

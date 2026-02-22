@@ -9,6 +9,7 @@ It lets you:
 - Tune silence detection parameters (threshold, padding, minimum keep time)
 - Jump between cuts, scrub, and zoom the timeline like a real editor
 - Reopen the app and continue exactly where you left off
+- Analyze based on speech so keyboard sounds get automatically cut out
 
 This isn't super well documented and I'm not planning on supporting it too well so good luck with everything, but just run the build.bat and open the built .exe in /dist
 

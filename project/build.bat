@@ -114,20 +114,6 @@ if not exist "silero_vad.onnx" (
   call :log "silero_vad.onnx already present."
 )
 
-REM Detect onnxruntime + model availability and build PyInstaller VAD args
-del /q "_vad_arg.tmp" >nul 2>&1
-if exist "silero_vad.onnx" (
-  "%PY%" -c "import onnxruntime; open('_vad_arg.tmp','w').write('--collect-all onnxruntime --hidden-import=numpy')" >nul 2>&1
-)
-set "VAD_PYI_ARGS="
-if exist "_vad_arg.tmp" (
-  set /p VAD_PYI_ARGS=<"_vad_arg.tmp"
-  del /q "_vad_arg.tmp" >nul 2>&1
-  call :log "VAD available -- bundling onnxruntime and silero model"
-) else (
-  call :log "VAD not available -- onnxruntime or model missing, checkbox will be disabled"
-)
-
 REM ============================
 REM CLEAN
 REM ============================
@@ -137,32 +123,22 @@ if exist dist rmdir /s /q dist 1>>"%LOG%" 2>>&1
 if exist "%NAME%.spec" del /q "%NAME%.spec" 1>>"%LOG%" 2>>&1
 
 REM ============================
-REM FLAGS
+REM BUILD LAUNCHER
 REM ============================
-if "%BUILD_CONSOLE%"=="1" (
-  set "WINFLAG=--console"
-) else (
-  set "WINFLAG=--windowed"
-)
-
-set "CUTTER_ABS=%cd%\%CUTTER%"
-call :log "WINFLAG: %WINFLAG%"
-call :log "CUTTER_ABS: %CUTTER_ABS%"
-
-REM ============================
-REM BUILD
-REM ============================
-call :log "Running PyInstaller..."
-call :log "VAD_PYI_ARGS: !VAD_PYI_ARGS!"
-
-set "SILERO_DATA="
-if exist "silero_vad.onnx" set "SILERO_DATA=--add-data silero_vad.onnx;."
-
-"%PYI%" --noconfirm --clean --onefile %WINFLAG% --hidden-import=vlc !VAD_PYI_ARGS! !SILERO_DATA! --name "%NAME%" --add-data "%CUTTER_ABS%;." "%GUI%" 1>>"%LOG%" 2>>&1
+call :log "Running PyInstaller (launcher only)..."
+"%PYI%" --noconfirm --clean --onefile --windowed --name "%NAME%" "launch.py" 1>>"%LOG%" 2>>&1
 if errorlevel 1 (
   call :log "ERROR: PyInstaller failed with errorlevel %ERRORLEVEL%."
   goto :fail
 )
+
+REM ============================
+REM COPY SCRIPTS TO DIST
+REM ============================
+call :log "Copying scripts to dist..."
+copy /y "%GUI%" "dist\%GUI%" 1>>"%LOG%" 2>>&1
+copy /y "%CUTTER%" "dist\%CUTTER%" 1>>"%LOG%" 2>>&1
+if exist "silero_vad.onnx" copy /y "silero_vad.onnx" "dist\silero_vad.onnx" 1>>"%LOG%" 2>>&1
 
 call :log "SUCCESS: dist\%NAME%.exe"
 echo.

@@ -10,9 +10,15 @@ set "GUI=silencecut_gui.py"
 set "CUTTER=cut_silence_to_fcpxml.py"
 set "NAME=SilenceCut"
 set "PY=C:\Python313\python.exe"
+if not exist "%PY%" (
+  for /f "usebackq delims=" %%P in (`where python 2^>nul`) do if not defined _PY_FOUND (set "PY=%%P" & set "_PY_FOUND=1")
+)
 
 set "USER_SCRIPTS=%APPDATA%\Python\Python313\Scripts"
 set "PYI=%USER_SCRIPTS%\pyinstaller.exe"
+if not exist "%PYI%" (
+  for /f "usebackq delims=" %%P in (`where pyinstaller 2^>nul`) do if not defined _PYI_FOUND (set "PYI=%%P" & set "_PYI_FOUND=1")
+)
 
 REM Make sure user-site is allowed
 set PYTHONNOUSERSITE=
@@ -89,6 +95,40 @@ if errorlevel 1 (
 )
 
 REM ============================
+REM ENSURE onnxruntime + numpy (for Silero VAD speech detection)
+REM ============================
+call :log "Installing onnxruntime and numpy (for VAD)..."
+"%PY%" -m pip install --user --upgrade onnxruntime numpy 1>>"%LOG%" 2>>&1
+if errorlevel 1 (
+  call :log "WARNING: onnxruntime/numpy install failed. VAD checkbox will be disabled."
+)
+
+REM Download silero_vad.onnx if not already present
+if not exist "silero_vad.onnx" (
+  call :log "Downloading silero_vad.onnx from GitHub..."
+  "%PY%" -c "import urllib.request; urllib.request.urlretrieve('https://github.com/snakers4/silero-vad/raw/v4.0/files/silero_vad.onnx', 'silero_vad.onnx'); print('Downloaded silero_vad.onnx')" 1>>"%LOG%" 2>>&1
+  if errorlevel 1 (
+    call :log "WARNING: Failed to download silero_vad.onnx. VAD will be disabled in the exe."
+  )
+) else (
+  call :log "silero_vad.onnx already present."
+)
+
+REM Detect onnxruntime + model availability and build PyInstaller VAD args
+del /q "_vad_arg.tmp" >nul 2>&1
+if exist "silero_vad.onnx" (
+  "%PY%" -c "import onnxruntime; open('_vad_arg.tmp','w').write('--collect-all onnxruntime --hidden-import=numpy')" >nul 2>&1
+)
+set "VAD_PYI_ARGS="
+if exist "_vad_arg.tmp" (
+  set /p VAD_PYI_ARGS=<"_vad_arg.tmp"
+  del /q "_vad_arg.tmp" >nul 2>&1
+  call :log "VAD available -- bundling onnxruntime and silero model"
+) else (
+  call :log "VAD not available -- onnxruntime or model missing, checkbox will be disabled"
+)
+
+REM ============================
 REM CLEAN
 REM ============================
 call :log "Cleaning build/dist..."
@@ -113,9 +153,12 @@ REM ============================
 REM BUILD
 REM ============================
 call :log "Running PyInstaller..."
-call :log "%PYI% --noconfirm --clean --onefile %WINFLAG% --hidden-import=vlc --name %NAME% --add-data %CUTTER_ABS%;. %GUI%"
+call :log "VAD_PYI_ARGS: !VAD_PYI_ARGS!"
 
-"%PYI%" --noconfirm --clean --onefile %WINFLAG% --hidden-import=vlc --name "%NAME%" --add-data "%CUTTER_ABS%;." "%GUI%" 1>>"%LOG%" 2>>&1
+set "SILERO_DATA="
+if exist "silero_vad.onnx" set "SILERO_DATA=--add-data silero_vad.onnx;."
+
+"%PYI%" --noconfirm --clean --onefile %WINFLAG% --hidden-import=vlc !VAD_PYI_ARGS! !SILERO_DATA! --name "%NAME%" --add-data "%CUTTER_ABS%;." "%GUI%" 1>>"%LOG%" 2>>&1
 if errorlevel 1 (
   call :log "ERROR: PyInstaller failed with errorlevel %ERRORLEVEL%."
   goto :fail

@@ -21,6 +21,7 @@ DEFAULTS = {
     "min_keep": 0.10,
     "audio_stream": "",
     "regen_mono": False,
+    "use_vad": False,
     "volume": 80,
 }
 
@@ -213,6 +214,7 @@ class App(tk.Tk):
         self.min_keep = tk.DoubleVar()
         self.audio_stream = tk.StringVar()
         self.regen_mono = tk.BooleanVar()
+        self.use_vad = tk.BooleanVar()
         self.volume = tk.IntVar()
 
         self._vlc_dll_dir = _add_vlc_dll_dir()
@@ -367,6 +369,7 @@ class App(tk.Tk):
             "min_keep": float(self.min_keep.get()),
             "audio_stream": self.audio_stream.get(),
             "regen_mono": bool(self.regen_mono.get()),
+            "use_vad": bool(self.use_vad.get()),
             "volume": int(self.volume.get()),
             "session": sess,
         }
@@ -381,6 +384,7 @@ class App(tk.Tk):
         self.min_keep.set(float(merged["min_keep"]))
         self.audio_stream.set(str(merged["audio_stream"]))
         self.regen_mono.set(bool(merged["regen_mono"]))
+        self.use_vad.set(bool(merged.get("use_vad", False)))
         self.volume.set(int(merged["volume"]))
 
     def _load_settings_into_vars(self):
@@ -408,7 +412,7 @@ class App(tk.Tk):
 
     def _install_var_traces(self):
         for v in [self.input_path, self.threshold, self.min_silence, self.pad, self.min_keep, self.audio_stream,
-                  self.regen_mono, self.volume]:
+                  self.regen_mono, self.use_vad, self.volume]:
             try:
                 v.trace_add("write", self._mark_settings_dirty)
             except:
@@ -535,6 +539,27 @@ class App(tk.Tk):
 
         ttk.Checkbutton(settings_box, text="Re-create mono proxy", variable=self.regen_mono).pack(anchor="w",
                                                                                                   pady=(6, 0))
+
+        import importlib.util as _ilu
+        _ort_ok = _ilu.find_spec('onnxruntime') is not None
+        if _ort_ok:
+            _model_dirs = []
+            if hasattr(sys, '_MEIPASS'):
+                _model_dirs.append(sys._MEIPASS)
+            _model_dirs.append(os.path.dirname(os.path.abspath(sys.argv[0])))
+            _model_dirs.append(os.path.dirname(os.path.abspath(__file__)))
+            _ort_ok = any(os.path.isfile(os.path.join(d, 'silero_vad.onnx'))
+                          for d in _model_dirs)
+        if _ort_ok:
+            vad_state = "normal"
+            vad_tip = "Use speech detection (VAD)"
+        else:
+            vad_state = "disabled"
+            vad_tip = "Use speech detection (VAD)  [onnxruntime or silero_vad.onnx not found — run build.bat]"
+
+        self._vad_cb = ttk.Checkbutton(settings_box, text=vad_tip,
+                                        variable=self.use_vad, state=vad_state)
+        self._vad_cb.pack(anchor="w", pady=(4, 0))
 
         actions = ttk.LabelFrame(left, text="Actions", padding=10)
         actions.pack(fill="x", pady=(10, 0))
@@ -675,6 +700,8 @@ class App(tk.Tk):
             argv += ["--audio_stream", aud]
         if self.regen_mono.get():
             argv += ["--regen_mono"]
+        if self.use_vad.get():
+            argv += ["--use_vad"]
         return argv
 
     # ---------------- Timeline helpers ----------------
@@ -909,7 +936,8 @@ class App(tk.Tk):
                     raise RuntimeError("cut_silence_to_fcpxml.py is missing compute_plan(...).")
 
                 with contextlib.redirect_stdout(outw), contextlib.redirect_stderr(errw):
-                    plan = mod.compute_plan(inp, threshold, min_silence, pad, min_keep, audio_stream)
+                    plan = mod.compute_plan(inp, threshold, min_silence, pad, min_keep, audio_stream,
+                                            use_vad=bool(self.use_vad.get()))
 
                 outw.flush()
                 errw.flush()
@@ -926,13 +954,14 @@ class App(tk.Tk):
                 self.after(0, self._draw_all_timelines)
 
             except Exception as e:
+                _err_msg = str(e)
                 try:
                     outw.flush()
                     errw.flush()
                 except:
                     pass
                 self.after(0, lambda: self.preview_status.set("(Analysis failed)"))
-                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+                self.after(0, lambda: messagebox.showerror("Error", _err_msg))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -1062,13 +1091,14 @@ class App(tk.Tk):
                     self.after(0, lambda: messagebox.showerror("Error", f"Failed (exit code {rc}). See log."))
 
             except Exception as e:
+                _err_msg = str(e)
                 try:
                     outw.flush()
                     errw.flush()
                 except:
                     pass
-                self._log_q.put(f"\nERROR: {e}\n")
-                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+                self._log_q.put(f"\nERROR: {_err_msg}\n")
+                self.after(0, lambda: messagebox.showerror("Error", _err_msg))
             finally:
                 self.after(0, lambda: self._set_running(False))
 

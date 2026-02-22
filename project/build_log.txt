@@ -6,21 +6,33 @@ BUILD_CONSOLE: 0
 APPDATA: C:\Users\tomas\AppData\Roaming
 Python 3.13.3
 Checking pip...
-pip 25.3 from C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\pip (python 3.13)
+pip 26.0.1 from C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\pip (python 3.13)
 Ensuring python-vlc is installed...
-Requirement already satisfied: python-vlc in c:\users\tomas\appdata\roaming\python\python313\site-packages (3.0.21203)
+Requirement already satisfied: python-vlc in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (3.0.21203)
+Installing onnxruntime and numpy (for VAD)...
+Requirement already satisfied: onnxruntime in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (1.24.2)
+Requirement already satisfied: numpy in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (2.4.2)
+Requirement already satisfied: flatbuffers in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (from onnxruntime) (25.12.19)
+Requirement already satisfied: packaging in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (from onnxruntime) (25.0)
+Requirement already satisfied: protobuf in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (from onnxruntime) (6.33.5)
+Requirement already satisfied: sympy in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (from onnxruntime) (1.14.0)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages (from sympy->onnxruntime) (1.3.0)
+Downloading silero_vad.onnx from GitHub...
+Downloaded silero_vad.onnx
+VAD available -- bundling onnxruntime and silero model
 Cleaning build/dist...
 WINFLAG: --windowed
 CUTTER_ABS: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\cut_silence_to_fcpxml.py
 Running PyInstaller...
-C:\Users\tomas\AppData\Roaming\Python\Python313\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed --hidden-import=vlc --name SilenceCut --add-data C:\Users\tomas\Desktop\local-premiere-auto-cut\project\cut_silence_to_fcpxml.py;. silencecut_gui.py
-1245 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
-1246 INFO: Python: 3.13.3
-1276 INFO: Platform: Windows-11-10.0.26100-SP0
-1276 INFO: Python environment: C:\Python313
-1277 INFO: wrote C:\Users\tomas\Desktop\local-premiere-auto-cut\project\SilenceCut.spec
-1312 INFO: Removing temporary files and cleaning cache in C:\Users\tomas\AppData\Local\pyinstaller
-1323 INFO: Module search paths (PYTHONPATH):
+VAD_PYI_ARGS: --collect-all onnxruntime --hidden-import=numpy
+251 INFO: PyInstaller: 6.19.0, contrib hooks: 2026.0
+252 INFO: Python: 3.13.3
+279 INFO: Platform: Windows-11-10.0.26100-SP0
+280 INFO: Python environment: C:\Python313
+280 INFO: wrote C:\Users\tomas\Desktop\local-premiere-auto-cut\project\SilenceCut.spec
+292 INFO: Removing temporary files and cleaning cache in C:\Users\tomas\AppData\Local\pyinstaller
+518 WARNING: Failed to collect submodules for 'onnxruntime.quantization' because importing 'onnxruntime.quantization' raised: ModuleNotFoundError: No module named 'onnx'
+2074 INFO: Module search paths (PYTHONPATH):
 ['C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\Scripts\\pyinstaller.exe',
  'C:\\Python313\\python313.zip',
  'C:\\Python313\\DLLs',
@@ -29,57 +41,238 @@ C:\Users\tomas\AppData\Roaming\Python\Python313\Scripts\pyinstaller.exe --noconf
  'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages',
  'C:\\Python313\\Lib\\site-packages',
  'C:\\Users\\tomas\\Desktop\\local-premiere-auto-cut\\project']
-1791 INFO: Appending 'datas' from .spec
-1791 INFO: checking Analysis
-1791 INFO: Building Analysis because Analysis-00.toc is non existent
-1791 INFO: Looking for Python shared library...
-1791 INFO: Using Python shared library: C:\Python313\python313.dll
-1791 INFO: Running Analysis Analysis-00.toc
-1791 INFO: Target bytecode optimization level: 0
-1791 INFO: Initializing module dependency graph...
-1813 INFO: Initializing module graph hook caches...
-3489 INFO: Analyzing modules for base_library.zip ...
-5600 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-8817 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-10880 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-13383 INFO: Caching module dependency graph...
-13432 INFO: Analyzing C:\Users\tomas\Desktop\local-premiere-auto-cut\project\silencecut_gui.py
-13554 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-13602 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-13657 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
-13699 INFO: TclTkInfo: initializing cached Tcl/Tk info...
-15861 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-16427 INFO: Processing module hooks (post-graph stage)...
-16430 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
-16440 INFO: Performing binary vs. data reclassification (928 entries)
-25519 INFO: Looking for ctypes DLLs
-25657 INFO: Analyzing run-time hooks ...
-25658 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
-25679 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
-25717 INFO: Creating base_library.zip...
-25749 INFO: Looking for dynamic libraries
-25978 INFO: Extra DLL search directories (AddDllDirectory): []
-25978 INFO: Extra DLL search directories (PATH): []
-27319 INFO: Warnings written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\warn-SilenceCut.txt
-27338 INFO: Graph cross-reference written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\xref-SilenceCut.html
-27441 INFO: checking PYZ
-27441 INFO: Building PYZ because PYZ-00.toc is non existent
-27441 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz
-27631 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz completed successfully.
-27688 INFO: checking PKG
-27689 INFO: Building PKG because PKG-00.toc is non existent
-27689 INFO: Building PKG (CArchive) SilenceCut.pkg
-31733 INFO: Building PKG (CArchive) SilenceCut.pkg completed successfully.
-31746 INFO: Bootloader C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
-31746 INFO: checking EXE
-31746 INFO: Building EXE because EXE-00.toc is non existent
-31746 INFO: Building EXE from EXE-00.toc
-31756 INFO: Copying bootloader EXE to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist\SilenceCut.exe
-31867 INFO: Copying icon to EXE
-31921 INFO: Copying 0 resources to EXE
-31922 INFO: Embedding manifest in EXE
-31977 INFO: Appending PKG archive to EXE
-32209 INFO: Fixing EXE headers
-33450 INFO: Building EXE from EXE-00.toc completed successfully.
-33463 INFO: Build complete! The results are available in: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist
+2643 INFO: Appending 'binaries' from .spec
+2643 INFO: Appending 'datas' from .spec
+2704 INFO: checking Analysis
+2705 INFO: Building Analysis because Analysis-00.toc is non existent
+2705 INFO: Looking for Python shared library...
+2705 INFO: Using Python shared library: C:\Python313\python313.dll
+2705 INFO: Running Analysis Analysis-00.toc
+2705 INFO: Target bytecode optimization level: 0
+2705 INFO: Initializing module dependency graph...
+2707 INFO: Initializing module graph hook caches...
+2726 INFO: Analyzing modules for base_library.zip ...
+4377 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+4484 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+6560 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+8187 INFO: Caching module dependency graph...
+8228 INFO: Analyzing C:\Users\tomas\Desktop\local-premiere-auto-cut\project\silencecut_gui.py
+8329 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+8353 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+8372 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+8374 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+8866 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+9198 INFO: Analyzing hidden import 'numpy'
+9218 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+9800 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+10035 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+10227 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+11355 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+12752 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+12753 INFO: SetuptoolsInfo: initializing cached setuptools info...
+17384 INFO: Setuptools: 'typing_extensions' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.typing_extensions'!
+17392 INFO: Processing standard module hook 'hook-setuptools.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+17414 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17451 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17452 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+17465 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17466 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+17704 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17904 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+17906 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17916 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17917 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+18159 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18160 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
+18190 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+18193 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18194 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
+18535 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+18536 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+19112 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19112 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+20190 INFO: Analyzing hidden import 'onnxruntime'
+20204 INFO: Processing standard module hook 'hook-onnxruntime.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20318 INFO: Processing pre-safe-import-module hook 'hook-tensorflow.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\_pyinstaller_hooks_contrib\\pre_safe_import_module'
+20323 INFO: Analyzing hidden import 'onnxruntime.capi.convert_npz_to_onnx_adapter'
+20326 INFO: Analyzing hidden import 'onnxruntime.datasets'
+20327 INFO: Analyzing hidden import 'onnxruntime.tools'
+20333 INFO: Analyzing hidden import 'onnxruntime.tools.check_onnx_model_mobile_usability'
+20373 INFO: Analyzing hidden import 'onnxruntime.tools.convert_onnx_models_to_ort'
+20419 INFO: Analyzing hidden import 'onnxruntime.tools.make_dynamic_shape_fixed'
+20422 INFO: Analyzing hidden import 'onnxruntime.tools.offline_tuning'
+20430 INFO: Analyzing hidden import 'onnxruntime.tools.onnx_randomizer'
+20434 INFO: Analyzing hidden import 'onnxruntime.tools.onnxruntime_test'
+20450 INFO: Analyzing hidden import 'onnxruntime.tools.optimize_onnx_model'
+20452 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py'
+20453 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs'
+20455 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.ArgType'
+20456 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.ArgTypeAndIndex'
+20500 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Attribute'
+20514 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.AttributeType'
+20515 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Checkpoint'
+20521 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DeprecatedKernelCreateInfos'
+20526 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DeprecatedNodeIndexAndKernelDefHash'
+20530 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DeprecatedSessionState'
+20534 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DeprecatedSubGraphSessionState'
+20538 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Dimension'
+20541 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DimensionValue'
+20545 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.DimensionValueType'
+20545 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.EdgeEnd'
+20547 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.FloatProperty'
+20551 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Graph'
+20564 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.InferenceSession'
+20568 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.IntProperty'
+20574 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.KernelTypeStrArgsEntry'
+20578 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.KernelTypeStrResolver'
+20581 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.MapType'
+20585 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Model'
+20594 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.ModuleState'
+20601 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Node'
+20614 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.NodeEdge'
+20619 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.NodeType'
+20620 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.NodesToOptimizeIndices'
+20627 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.OpIdKernelTypeStrArgsEntry'
+20631 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.OperatorSetId'
+20634 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.OptimizerGroup'
+20639 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.ParameterOptimizerState'
+20643 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.PropertyBag'
+20650 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.RuntimeOptimizationRecord'
+20655 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.RuntimeOptimizationRecordContainerEntry'
+20659 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.RuntimeOptimizations'
+20662 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.SequenceType'
+20665 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Shape'
+20669 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.SparseTensor'
+20674 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.StringProperty'
+20677 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.StringStringEntry'
+20680 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.Tensor'
+20688 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.TensorDataType'
+20690 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.TensorTypeAndShape'
+20693 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.TypeInfo'
+20697 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.TypeInfoValue'
+20698 INFO: Analyzing hidden import 'onnxruntime.tools.ort_format_model.ort_flatbuffers_py.fbs.ValueInfo'
+20702 INFO: Analyzing hidden import 'onnxruntime.tools.pytorch_export_contrib_ops'
+20706 INFO: Analyzing hidden import 'onnxruntime.tools.qdq_helpers'
+20707 INFO: Analyzing hidden import 'onnxruntime.tools.qdq_helpers.optimize_qdq_model'
+20709 INFO: Analyzing hidden import 'onnxruntime.tools.reduced_build_config_parser'
+20715 INFO: Analyzing hidden import 'onnxruntime.tools.remove_initializer_from_input'
+20717 INFO: Analyzing hidden import 'onnxruntime.tools.symbolic_shape_infer'
+34673 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+36138 INFO: Analyzing hidden import 'onnxruntime.tools.update_onnx_opset'
+36140 INFO: Analyzing hidden import 'onnxruntime.transformers.affinity_helper'
+36142 INFO: Analyzing hidden import 'onnxruntime.transformers.benchmark'
+36171 INFO: Analyzing hidden import 'onnxruntime.transformers.benchmark_helper'
+36196 INFO: Analyzing hidden import 'onnxruntime.transformers.bert_perf_test'
+36218 INFO: Analyzing hidden import 'onnxruntime.transformers.bert_test_data'
+36237 INFO: Analyzing hidden import 'onnxruntime.transformers.compare_bert_results'
+36246 INFO: Analyzing hidden import 'onnxruntime.transformers.constants'
+36248 INFO: Analyzing hidden import 'onnxruntime.transformers.convert_generation'
+36464 INFO: Analyzing hidden import 'onnxruntime.transformers.convert_tf_models_to_pytorch'
+36472 INFO: Analyzing hidden import 'onnxruntime.transformers.convert_to_packing_mode'
+36489 INFO: Analyzing hidden import 'onnxruntime.transformers.dynamo_onnx_helper'
+36500 INFO: Analyzing hidden import 'onnxruntime.transformers.float16'
+36519 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_attention'
+36559 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_attention_clip'
+36570 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_attention_sam2'
+36586 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_attention_unet'
+36626 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_attention_vae'
+36636 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_bart_attention'
+36651 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_base'
+36657 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_bias_add'
+36660 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_biasgelu'
+36664 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_biassplitgelu'
+36668 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_conformer_attention'
+36674 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_constant_fold'
+36680 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_embedlayer'
+36704 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_fastgelu'
+36719 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gelu'
+36728 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gelu_approximation'
+36730 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gemmfastgelu'
+36735 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gpt_attention'
+36750 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gpt_attention_megatron'
+36762 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_gpt_attention_no_past'
+36771 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_group_norm'
+36778 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_layernorm'
+36795 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_mha_mmdit'
+36810 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_nhwc_conv'
+36815 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_options'
+36823 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_qordered_attention'
+36836 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_qordered_gelu'
+36840 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_qordered_layernorm'
+36844 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_qordered_matmul'
+36850 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_quickgelu'
+36853 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_reshape'
+36859 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_rotary_attention'
+36906 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_shape'
+36910 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_simplified_layernorm'
+36916 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_skip_group_norm'
+36925 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_skiplayernorm'
+36933 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_transpose'
+36940 INFO: Analyzing hidden import 'onnxruntime.transformers.fusion_utils'
+36953 INFO: Analyzing hidden import 'onnxruntime.transformers.huggingface_models'
+36955 INFO: Analyzing hidden import 'onnxruntime.transformers.import_utils'
+36957 INFO: Analyzing hidden import 'onnxruntime.transformers.io_binding_helper'
+36975 INFO: Analyzing hidden import 'onnxruntime.transformers.large_model_exporter'
+36993 INFO: Analyzing hidden import 'onnxruntime.transformers.metrics'
+37001 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_exporter'
+37026 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model'
+37088 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_bart'
+37096 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_bert'
+37126 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_bert_keras'
+37143 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_bert_tf'
+37163 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_clip'
+37166 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_conformer'
+37169 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_gpt2'
+37174 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_mmdit'
+37181 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_phi'
+37218 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_sam2'
+37225 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_t5'
+37254 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_tnlr'
+37261 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_unet'
+37276 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_model_vae'
+37280 INFO: Analyzing hidden import 'onnxruntime.transformers.onnx_utils'
+37283 INFO: Analyzing hidden import 'onnxruntime.transformers.optimizer'
+37307 INFO: Analyzing hidden import 'onnxruntime.transformers.past_helper'
+37313 INFO: Analyzing hidden import 'onnxruntime.transformers.profile_result_processor'
+37326 INFO: Analyzing hidden import 'onnxruntime.transformers.profiler'
+37337 INFO: Analyzing hidden import 'onnxruntime.transformers.quantize_helper'
+37917 INFO: Analyzing hidden import 'onnxruntime.transformers.shape_infer_helper'
+37923 INFO: Analyzing hidden import 'onnxruntime.transformers.shape_optimizer'
+37939 INFO: Analyzing hidden import 'onnxruntime.transformers.torch_onnx_export_helper'
+37941 INFO: Processing module hooks (post-graph stage)...
+38398 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks'
+38420 INFO: Performing binary vs. data reclassification (1261 entries)
+38748 INFO: Looking for ctypes DLLs
+38964 INFO: Analyzing run-time hooks ...
+38970 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+38973 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+38977 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+38979 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+38981 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\PyInstaller\\hooks\\rthooks'
+39029 INFO: Creating base_library.zip...
+39053 INFO: Looking for dynamic libraries
+41274 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\tomas\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy.libs']
+41274 INFO: Extra DLL search directories (PATH): []
+42631 INFO: Warnings written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\warn-SilenceCut.txt
+42759 INFO: Graph cross-reference written to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\xref-SilenceCut.html
+42828 INFO: checking PYZ
+42828 INFO: Building PYZ because PYZ-00.toc is non existent
+42828 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz
+44325 INFO: Building PYZ (ZlibArchive) C:\Users\tomas\Desktop\local-premiere-auto-cut\project\build\SilenceCut\PYZ-00.pyz completed successfully.
+44381 INFO: checking PKG
+44381 INFO: Building PKG because PKG-00.toc is non existent
+44381 INFO: Building PKG (CArchive) SilenceCut.pkg
+55150 INFO: Building PKG (CArchive) SilenceCut.pkg completed successfully.
+55170 INFO: Bootloader C:\Users\tomas\AppData\Roaming\Python\Python313\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+55170 INFO: checking EXE
+55171 INFO: Building EXE because EXE-00.toc is non existent
+55171 INFO: Building EXE from EXE-00.toc
+55171 INFO: Copying bootloader EXE to C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist\SilenceCut.exe
+55181 INFO: Copying icon to EXE
+55189 INFO: Copying 0 resources to EXE
+55189 INFO: Embedding manifest in EXE
+55198 INFO: Appending PKG archive to EXE
+55410 INFO: Fixing EXE headers
+59457 INFO: Building EXE from EXE-00.toc completed successfully.
+59479 INFO: Build complete! The results are available in: C:\Users\tomas\Desktop\local-premiere-auto-cut\project\dist
 SUCCESS: dist\SilenceCut.exe
